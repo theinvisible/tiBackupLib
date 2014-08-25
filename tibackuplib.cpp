@@ -52,12 +52,24 @@ QList<DeviceDisk> TiBackupLib::getAttachedDisks()
             model_entry = udev_list_entry_get_by_name(list_entry, "ID_SERIAL");
             QString udevName = udev_list_entry_get_value(model_entry);
 
+            model_entry = udev_list_entry_get_by_name(list_entry, "ID_VENDOR");
+            QString udevIDvendor = udev_list_entry_get_value(model_entry);
+
+            model_entry = udev_list_entry_get_by_name(list_entry, "ID_MODEL");
+            QString udevIDmodel = udev_list_entry_get_value(model_entry);
+
             model_entry = udev_list_entry_get_by_name(list_entry, "DEVNAME");
             QString udevDevname = udev_list_entry_get_value(model_entry);
+
+            model_entry = udev_list_entry_get_by_name(list_entry, "DEVTYPE");
+            QString udevDevtype = udev_list_entry_get_value(model_entry);
 
             DeviceDisk disk;
             disk.name = udevName;
             disk.devname = udevDevname;
+            disk.devtype = udevDevtype;
+            disk.vendor = udevIDvendor;
+            disk.model = udevIDmodel;
 
             disks.append(disk);
 

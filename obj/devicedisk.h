@@ -21,6 +21,10 @@ public:
     QString name;
     QString uuid;
     QString devname;
+    QString devtype;
+
+    QString vendor;
+    QString model;
 
     QList<DeviceDiskPartition> partitions;
 
