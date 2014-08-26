@@ -13,12 +13,17 @@ DEFINES += TIBACKUPLIB_LIBRARY
 
 SOURCES += tibackuplib.cpp \
     obj/devicedisk.cpp \
-    tibackupdiskobserver.cpp
+    tibackupdiskobserver.cpp \
+    ticonf.cpp \
+    obj/tibackupjob.cpp
 
 HEADERS += tibackuplib.h\
         tibackuplib_global.h \
     obj/devicedisk.h \
-    tibackupdiskobserver.h
+    tibackupdiskobserver.h \
+    ticonf.h \
+    config.h \
+    obj/tibackupjob.h
 
 unix {
     target.path = /usr/lib

@@ -72,3 +72,21 @@ void DeviceDisk::readPartitions()
 
     blkid_free_probe(pr);
 }
+
+DeviceDiskPartition DeviceDisk::getPartitionByUUID(const QString &uuid)
+{
+    readPartitions();
+
+    DeviceDiskPartition part;
+
+    for (int i=0; i < partitions.count(); i++)
+    {
+        part = partitions.at(i);
+        qDebug() << "1:" << part.uuid << ":2:" << uuid << ":";
+        if(part.uuid == uuid)
+            return part;
+    }
+
+    DeviceDiskPartition part_empty;
+    return part_empty;
+}

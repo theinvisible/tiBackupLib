@@ -31,6 +31,7 @@ public:
     DeviceDisk();
 
     void readPartitions();
+    DeviceDiskPartition getPartitionByUUID(const QString &uuid);
 };
 
 #endif // DEVICEDISK_H
