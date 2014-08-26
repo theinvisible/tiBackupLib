@@ -15,6 +15,9 @@ public:
     QList<DeviceDisk> getAttachedDisks();
     bool isDeviceUSB(struct udev_device *device);
     void print_device(struct udev_device *device, const char *source);
+
+    QString mountPartition(DeviceDiskPartition *part);
+    void umountPartition(DeviceDiskPartition *part);
 };
 
 #endif // TIBACKUPLIB_H

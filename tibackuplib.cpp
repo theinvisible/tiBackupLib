@@ -1,5 +1,8 @@
 #include "tibackuplib.h"
 
+#include <QDebug>
+#include <QDir>
+
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,8 +14,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#include <QDebug>
+#include <sys/mount.h>
 
+#include "config.h"
 
 TiBackupLib::TiBackupLib()
 {
@@ -129,4 +133,22 @@ void TiBackupLib::print_device(struct udev_device *device, const char *source)
                          udev_list_entry_get_value(list_entry));
             printf("\n");
 
+}
+
+QString TiBackupLib::mountPartition(DeviceDiskPartition *part)
+{
+    QString mount_dir = QString(tibackup_config::mount_root).append("/").append(part->uuid);
+    QDir m_dir(mount_dir);
+    if(!m_dir.exists(mount_dir))
+        m_dir.mkdir(mount_dir);
+
+    int ret = mount(part->name.toStdString().c_str(), mount_dir.toStdString().c_str(), part->type.toStdString().c_str(), 0, 0);
+
+    return mount_dir;
+}
+
+void TiBackupLib::umountPartition(DeviceDiskPartition *part)
+{
+    QString mount_dir = QString(tibackup_config::mount_root).append("/").append(part->uuid);
+    int ret = umount(mount_dir.toStdString().c_str());
 }
