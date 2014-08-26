@@ -2,6 +2,7 @@
 
 #include <QDebug>
 #include <QFile>
+#include <QDirIterator>
 
 #include "config.h"
 
@@ -33,6 +34,7 @@ QVariant tiConfMain::getValue(const QString &iniPath)
 tiConfBackupJobs::tiConfBackupJobs()
 {
     main_settings = new tiConfMain();
+    QList<tiBackupJob*> jobs;
 }
 
 tiConfBackupJobs::~tiConfBackupJobs()
@@ -73,4 +75,68 @@ void tiConfBackupJobs::saveBackupJob(const tiBackupJob &job)
 
     f->sync();
     delete f;
+}
+
+void tiConfBackupJobs::readBackupJobs()
+{
+    // TODO if job objects exist we must *delete* them first
+    jobs.clear();
+
+    QString jobsdir = main_settings->getValue("paths/backupjobs").toString();
+    QDirIterator it_jobdir(jobsdir);
+    QString jobfilepath;
+    while (it_jobdir.hasNext())
+    {
+        jobfilepath = it_jobdir.next();
+        if(jobfilepath.endsWith(".conf"))
+        {
+            qDebug() << "jobfile found:" << jobfilepath;
+
+            QSettings *f = new QSettings(jobfilepath, QSettings::IniFormat);
+            tiBackupJob *job = new tiBackupJob;
+
+            f->beginGroup("job");
+            job->name = f->value("name").toString();
+            job->device = f->value("device").toString();
+            job->partition_uuid = f->value("partition_uuid").toString();
+            f->endGroup();
+
+            f->beginGroup("backup");
+            job->delete_add_file_on_dest = f->value("delete_add_file_on_dest").toBool();
+
+            int size = f->beginReadArray("folders");
+            for (int i = 0; i < size; ++i)
+            {
+                f->setArrayIndex(i);
+                job->backupdirs.insertMulti(f->value("source").toString(), f->value("dest").toString());
+            }
+            f->endArray();
+
+            f->endGroup();
+
+            jobs.append(job);
+            delete f;
+        }
+    }
+}
+
+QList<tiBackupJob *> tiConfBackupJobs::getJobs()
+{
+    return jobs;
+}
+
+QList<tiBackupJob *> tiConfBackupJobs::getJobsByUuid(const QString &uuid)
+{
+    readBackupJobs();
+    QList<tiBackupJob*> retjobs;
+    tiBackupJob *job = 0;
+
+    for(int i=0; i < jobs.count(); i++)
+    {
+        job = jobs.at(i);
+        if(job->partition_uuid == uuid)
+            retjobs.append(job);
+    }
+
+    return retjobs;
 }

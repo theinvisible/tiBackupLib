@@ -24,9 +24,15 @@ public:
     ~tiConfBackupJobs();
 
     void saveBackupJob(const tiBackupJob &job);
+    void readBackupJobs();
+
+    QList<tiBackupJob*> getJobs();
+    QList<tiBackupJob*> getJobsByUuid(const QString &uuid);
 
 private:
     tiConfMain *main_settings;
+
+    QList<tiBackupJob*> jobs;
 };
 
 #endif // TICONF_H
