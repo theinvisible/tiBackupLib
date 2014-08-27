@@ -2,6 +2,7 @@
 
 #include <QDebug>
 #include <QDir>
+#include <QProcess>
 
 #include <unistd.h>
 #include <stdio.h>
@@ -15,6 +16,7 @@
 #include <fcntl.h>
 
 #include <sys/mount.h>
+#include <mntent.h>
 
 #include "config.h"
 
@@ -142,7 +144,9 @@ QString TiBackupLib::mountPartition(DeviceDiskPartition *part)
     if(!m_dir.exists(mount_dir))
         m_dir.mkdir(mount_dir);
 
-    int ret = mount(part->name.toStdString().c_str(), mount_dir.toStdString().c_str(), part->type.toStdString().c_str(), 0, 0);
+    //int ret = mount(part->name.toStdString().c_str(), mount_dir.toStdString().c_str(), part->type.toStdString().c_str(), 0, 0);
+    // TODO doesnt seem to work?!?
+    int ret = runCommandwithReturnCode(QString("echo tt > /tmp/test22").arg(part->name, mount_dir));
 
     return mount_dir;
 }
@@ -151,4 +155,71 @@ void TiBackupLib::umountPartition(DeviceDiskPartition *part)
 {
     QString mount_dir = QString(tibackup_config::mount_root).append("/").append(part->uuid);
     int ret = umount(mount_dir.toStdString().c_str());
+}
+
+bool TiBackupLib::isMounted(const QString &dev_path)
+{
+   FILE * mtab = NULL;
+   struct mntent * part = NULL;
+   bool is_mounted = false;
+
+   if(( mtab = setmntent("/etc/mtab", "r") ) != NULL)
+   {
+       while((part = getmntent(mtab)) != NULL)
+       {
+            if((part->mnt_fsname != NULL) && ( strcmp(part->mnt_fsname, dev_path.toStdString().c_str() )) == 0 )
+            {
+                is_mounted = true;
+            }
+       }
+
+       endmntent(mtab);
+   }
+
+   return is_mounted;
+}
+
+QString TiBackupLib::getMountDir(const QString &dev_path)
+{
+    FILE * mtab = NULL;
+    struct mntent * part = NULL;
+    bool is_mounted = false;
+    QString mount_dir;
+
+    if(( mtab = setmntent("/etc/mtab", "r") ) != NULL)
+    {
+        while((part = getmntent(mtab)) != NULL)
+        {
+             if((part->mnt_fsname != NULL) && ( strcmp(part->mnt_fsname, dev_path.toStdString().c_str() )) == 0 )
+             {
+                 mount_dir = part->mnt_dir;
+             }
+        }
+
+        endmntent(mtab);
+    }
+
+    return mount_dir;
+}
+
+QString TiBackupLib::runCommandwithOutput(const QString &cmd)
+{
+    QProcess proc;
+    proc.start(cmd, QIODevice::ReadOnly);
+    proc.waitForStarted();
+    proc.waitForFinished();
+
+    return proc.readLine();
+}
+
+int TiBackupLib::runCommandwithReturnCode(const QString &cmd)
+{
+    qDebug() << "run command::" << cmd;
+
+    QProcess proc;
+    proc.start(cmd, QIODevice::ReadOnly);
+    proc.waitForStarted();
+    proc.waitForFinished();
+
+    return proc.exitCode();
 }

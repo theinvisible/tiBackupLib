@@ -18,6 +18,12 @@ public:
 
     QString mountPartition(DeviceDiskPartition *part);
     void umountPartition(DeviceDiskPartition *part);
+
+    bool isMounted(const QString &dev_path);
+    QString getMountDir(const QString &dev_path);
+
+    QString runCommandwithOutput(const QString &cmd);
+    int runCommandwithReturnCode(const QString &cmd);
 };
 
 #endif // TIBACKUPLIB_H
