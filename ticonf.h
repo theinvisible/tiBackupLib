@@ -28,6 +28,10 @@ public:
 
     QList<tiBackupJob*> getJobs();
     QList<tiBackupJob*> getJobsByUuid(const QString &uuid);
+    tiBackupJob* gebJobByName(const QString &jobname);
+
+    bool removeJob(const tiBackupJob &job);
+    bool removeJobByName(const QString &jobname);
 
 private:
     tiConfMain *main_settings;

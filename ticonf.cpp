@@ -142,3 +142,28 @@ QList<tiBackupJob *> tiConfBackupJobs::getJobsByUuid(const QString &uuid)
 
     return retjobs;
 }
+
+tiBackupJob *tiConfBackupJobs::gebJobByName(const QString &jobname)
+{
+    readBackupJobs();
+    tiBackupJob *job = 0;
+
+    for(int i=0; i < jobs.count(); i++)
+    {
+        job = jobs.at(i);
+        if(job->name == jobname)
+            return job;
+    }
+
+    return job;
+}
+
+bool tiConfBackupJobs::removeJob(const tiBackupJob &job)
+{
+
+}
+
+bool tiConfBackupJobs::removeJobByName(const QString &jobname)
+{
+    return QFile::remove(QString("%1/%2.conf").arg(main_settings->getValue("paths/backupjobs").toString(), jobname));
+}
