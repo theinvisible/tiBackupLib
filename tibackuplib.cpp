@@ -145,8 +145,7 @@ QString TiBackupLib::mountPartition(DeviceDiskPartition *part)
         m_dir.mkdir(mount_dir);
 
     //int ret = mount(part->name.toStdString().c_str(), mount_dir.toStdString().c_str(), part->type.toStdString().c_str(), 0, 0);
-    // TODO doesnt seem to work?!?
-    int ret = runCommandwithReturnCode(QString("echo tt > /tmp/test22").arg(part->name, mount_dir));
+    int ret = runCommandwithReturnCode(QString("mount %1 %2").arg(part->name, mount_dir));
 
     return mount_dir;
 }
@@ -154,7 +153,8 @@ QString TiBackupLib::mountPartition(DeviceDiskPartition *part)
 void TiBackupLib::umountPartition(DeviceDiskPartition *part)
 {
     QString mount_dir = QString(tibackup_config::mount_root).append("/").append(part->uuid);
-    int ret = umount(mount_dir.toStdString().c_str());
+    //int ret = umount(mount_dir.toStdString().c_str());
+    int ret = runCommandwithReturnCode(QString("umount %1").arg(mount_dir));
 }
 
 bool TiBackupLib::isMounted(const QString &dev_path)
@@ -222,4 +222,18 @@ int TiBackupLib::runCommandwithReturnCode(const QString &cmd)
     proc.waitForFinished();
 
     return proc.exitCode();
+}
+
+QString TiBackupLib::convertPath2Generic(const QString &path, const QString &mountdir)
+{
+    QString str = path;
+    str.replace(mountdir, QString(tibackup_config::var_partbackup_dir));
+    return str;
+}
+
+QString TiBackupLib::convertGeneric2Path(const QString &path, const QString &mountdir)
+{
+    QString str = path;
+    str.replace(QString(tibackup_config::var_partbackup_dir), mountdir);
+    return str;
 }

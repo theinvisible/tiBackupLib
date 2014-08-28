@@ -24,6 +24,9 @@ public:
 
     QString runCommandwithOutput(const QString &cmd);
     int runCommandwithReturnCode(const QString &cmd);
+
+    static QString convertPath2Generic(const QString &path, const QString &mountdir);
+    static QString convertGeneric2Path(const QString &path, const QString &mountdir);
 };
 
 #endif // TIBACKUPLIB_H
