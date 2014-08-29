@@ -1,3 +1,26 @@
+/*
+ *
+tiBackupLib - A intelligent desktop/standalone backup system library
+
+Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
+
+    This file is part of tiBackup.
+
+    tiBackupLib is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    tiBackupLib is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with tiBackupLib.  If not, see <http://www.gnu.org/licenses/>.
+
+*/
+
 #include "ticonf.h"
 
 #include <QDebug>
@@ -45,6 +68,13 @@ tiConfBackupJobs::~tiConfBackupJobs()
 void tiConfBackupJobs::saveBackupJob(const tiBackupJob &job)
 {
     QString filename = QString(main_settings->getValue("paths/backupjobs").toString()).append("/%1.conf").arg(job.name);
+    QDir jobsdir(main_settings->getValue("paths/backupjobs").toString());
+    if(!jobsdir.exists())
+        jobsdir.mkpath(main_settings->getValue("paths/backupjobs").toString());
+
+    if(QFile::exists(filename))
+        QFile::remove(filename);
+
     QSettings *f = new QSettings(filename, QSettings::IniFormat);
 
     f->beginGroup("job");
@@ -57,6 +87,7 @@ void tiConfBackupJobs::saveBackupJob(const tiBackupJob &job)
 
     f->setValue("delete_add_file_on_dest", job.delete_add_file_on_dest);
     f->setValue("start_backup_on_hotplug", job.start_backup_on_hotplug);
+    f->setValue("save_log", job.save_log);
 
     f->beginWriteArray("folders");
     QHashIterator<QString, QString> it(job.backupdirs);
@@ -105,6 +136,7 @@ void tiConfBackupJobs::readBackupJobs()
             f->beginGroup("backup");
             job->delete_add_file_on_dest = f->value("delete_add_file_on_dest").toBool();
             job->start_backup_on_hotplug = f->value("start_backup_on_hotplug").toBool();
+            job->save_log = f->value("save_log").toBool();
 
             int size = f->beginReadArray("folders");
             for (int i = 0; i < size; ++i)
@@ -166,4 +198,10 @@ bool tiConfBackupJobs::removeJob(const tiBackupJob &job)
 bool tiConfBackupJobs::removeJobByName(const QString &jobname)
 {
     return QFile::remove(QString("%1/%2.conf").arg(main_settings->getValue("paths/backupjobs").toString(), jobname));
+}
+
+bool tiConfBackupJobs::renameJob(const QString &oldname, const QString &newname)
+{
+    return QFile::rename(QString("%1/%2.conf").arg(main_settings->getValue("paths/backupjobs").toString(), oldname),
+                         QString("%1/%2.conf").arg(main_settings->getValue("paths/backupjobs").toString(), newname));
 }
