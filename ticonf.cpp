@@ -33,6 +33,8 @@ tiConfMain::tiConfMain()
 {
     settings = 0;
 
+    initMainConf();
+
     if(!QFile(tibackup_config::file_main).exists())
     {
         qDebug() << QString("Main configuration file <").append(tibackup_config::file_main).append("> not found, please fix this...");
@@ -48,9 +50,44 @@ tiConfMain::~tiConfMain()
         delete settings;
 }
 
+void tiConfMain::initMainConf()
+{
+    QFile conf_main(tibackup_config::file_main);
+    if(!conf_main.exists())
+    {
+        QFileInfo finfo(tibackup_config::file_main);
+        QDir conf_main_dir = finfo.absoluteDir();
+        conf_main_dir.mkpath(conf_main_dir.absolutePath());
+
+        QString backupjobs_dir = QString("%1/jobs").arg(conf_main_dir.absolutePath());
+        QString logs_dir = QString("%1/logs").arg(conf_main_dir.absolutePath());
+
+        QDir backupjobsdir_path(backupjobs_dir);
+        backupjobsdir_path.mkpath(backupjobs_dir);
+        QDir logsdir_path(logs_dir);
+        logsdir_path.mkpath(logs_dir);
+
+        QSettings conf(tibackup_config::file_main, QSettings::IniFormat);
+        conf.setValue("main/debug", true);
+        conf.setValue("paths/backupjobs", backupjobs_dir);
+        conf.setValue("paths/logs", logs_dir);
+        conf.sync();
+    }
+}
+
 QVariant tiConfMain::getValue(const QString &iniPath)
 {
     return settings->value(iniPath);
+}
+
+void tiConfMain::setValue(const QString &iniPath, const QVariant &val)
+{
+    settings->setValue(iniPath, val);
+}
+
+void tiConfMain::sync()
+{
+    settings->sync();
 }
 
 

@@ -34,7 +34,11 @@ public:
     tiConfMain();
     ~tiConfMain();
 
+    void initMainConf();
+
     QVariant getValue(const QString &iniPath);
+    void setValue(const QString &iniPath, const QVariant &val);
+    void sync();
 
 private:
     QSettings *settings;
