@@ -68,9 +68,9 @@ void DeviceDisk::readPartitions()
     qDebug() << "dd3";
 
     // Get UUID, label and type
-    const char *uuid;
-    const char *label;
-    const char *type;
+    const char *uuid = 0;
+    const char *label = 0;
+    const char *type = 0;
 
     for (i = 0; i < nparts; i++) {
        char dev_name[20];
@@ -80,15 +80,23 @@ void DeviceDisk::readPartitions()
        pr = blkid_new_probe_from_filename(dev_name);
        blkid_do_probe(pr);
 
+       qDebug() << "DeviceDisk::readPartitions(): read blkid values for " << dev_name;
+
        blkid_probe_lookup_value(pr, "UUID", &uuid, NULL);
        blkid_probe_lookup_value(pr, "LABEL", &label, NULL);
        blkid_probe_lookup_value(pr, "TYPE", &type, NULL);
+
+       qDebug() << "DeviceDisk::readPartitions(): blkid VALUES::" << uuid << "::" << label << "::" << type;
 
        DeviceDiskPartition part;
        part.name = dev_name;
        part.uuid = uuid;
        part.label = label;
        part.type = type;
+
+       uuid = 0;
+       label = 0;
+       type = 0;
 
        partitions.append(part);
     }
