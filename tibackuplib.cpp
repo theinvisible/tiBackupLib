@@ -260,3 +260,33 @@ QString TiBackupLib::convertGeneric2Path(const QString &path, const QString &mou
     str.replace(QString(tibackup_config::var_partbackup_dir), mountdir);
     return str;
 }
+
+DeviceDiskPartition TiBackupLib::getPartitionByUUID(const QString &uuid)
+{
+    TiBackupLib blib;
+    QList<DeviceDisk> disks = blib.getAttachedDisks();
+    DeviceDiskPartition retPart;
+    for(int i=0; i < disks.count(); i++)
+    {
+        DeviceDisk disk = disks.at(i);
+
+        if(disk.devtype == "disk")
+        {
+            disk.readPartitions();
+            for(int j=0; j < disk.partitions.count(); j++)
+            {
+                DeviceDiskPartition part = disk.partitions.at(j);
+
+                if(part.uuid.isEmpty())
+                    continue;
+
+                if(part.uuid == uuid)
+                {
+                    return part;
+                }
+            }
+        }
+    }
+
+    return retPart;
+}

@@ -50,6 +50,8 @@ public:
 
     static QString convertPath2Generic(const QString &path, const QString &mountdir);
     static QString convertGeneric2Path(const QString &path, const QString &mountdir);
+
+    static DeviceDiskPartition getPartitionByUUID(const QString &uuid);
 };
 
 #endif // TIBACKUPLIB_H
