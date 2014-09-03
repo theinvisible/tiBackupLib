@@ -125,6 +125,7 @@ void tiConfBackupJobs::saveBackupJob(const tiBackupJob &job)
     f->setValue("delete_add_file_on_dest", job.delete_add_file_on_dest);
     f->setValue("start_backup_on_hotplug", job.start_backup_on_hotplug);
     f->setValue("save_log", job.save_log);
+    f->setValue("compare_via_checksum", job.compare_via_checksum);
 
     f->beginWriteArray("folders");
     QHashIterator<QString, QString> it(job.backupdirs);
@@ -174,6 +175,7 @@ void tiConfBackupJobs::readBackupJobs()
             job->delete_add_file_on_dest = f->value("delete_add_file_on_dest").toBool();
             job->start_backup_on_hotplug = f->value("start_backup_on_hotplug").toBool();
             job->save_log = f->value("save_log").toBool();
+            job->compare_via_checksum = f->value("compare_via_checksum").toBool();
 
             int size = f->beginReadArray("folders");
             for (int i = 0; i < size; ++i)

@@ -43,6 +43,7 @@ public:
     bool delete_add_file_on_dest;
     bool start_backup_on_hotplug;
     bool save_log;
+    bool compare_via_checksum;
 
     void startBackup(DeviceDiskPartition *part);
 };

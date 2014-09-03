@@ -48,6 +48,12 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         backupArg.append("--delete ");
     }
 
+    if(compare_via_checksum == true)
+    {
+        qDebug() << "tiBackupJob::startBackup() -> Checksum comparison enabled";
+        backupArg.append("--checksum ");
+    }
+
     if(save_log == true)
     {
         qDebug() << "tiBackupJob::startBackup() -> Rsync Log will be archived";
