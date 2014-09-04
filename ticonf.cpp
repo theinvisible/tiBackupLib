@@ -140,7 +140,11 @@ void tiConfBackupJobs::saveBackupJob(const tiBackupJob &job)
         i++;
     }
     f->endArray();
+    f->endGroup();
 
+    f->beginGroup("notify");
+    f->setValue("enabled", job.notify);
+    f->setValue("recipients", job.notifyRecipients);
     f->endGroup();
 
     f->sync();
@@ -184,7 +188,11 @@ void tiConfBackupJobs::readBackupJobs()
                 job->backupdirs.insertMulti(f->value("source").toString(), f->value("dest").toString());
             }
             f->endArray();
+            f->endGroup();
 
+            f->beginGroup("notify");
+            job->notify = f->value("enabled").toBool();
+            job->notifyRecipients = f->value("recipients").toString();
             f->endGroup();
 
             jobs.append(job);
@@ -214,7 +222,7 @@ QList<tiBackupJob *> tiConfBackupJobs::getJobsByUuid(const QString &uuid)
     return retjobs;
 }
 
-tiBackupJob *tiConfBackupJobs::gebJobByName(const QString &jobname)
+tiBackupJob *tiConfBackupJobs::getJobByName(const QString &jobname)
 {
     readBackupJobs();
     tiBackupJob *job = 0;

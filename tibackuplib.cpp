@@ -225,24 +225,24 @@ QString TiBackupLib::getMountDir(const QString &dev_path)
     return mount_dir;
 }
 
-QString TiBackupLib::runCommandwithOutput(const QString &cmd)
+QString TiBackupLib::runCommandwithOutput(const QString &cmd, int timeout)
 {
     QProcess proc;
     proc.start(cmd, QIODevice::ReadOnly);
-    proc.waitForStarted();
-    proc.waitForFinished();
+    proc.waitForStarted(timeout);
+    proc.waitForFinished(timeout);
 
     return proc.readLine();
 }
 
-int TiBackupLib::runCommandwithReturnCode(const QString &cmd)
+int TiBackupLib::runCommandwithReturnCode(const QString &cmd, int timeout)
 {
     qDebug() << "run command::" << cmd;
 
     QProcess proc;
     proc.start(cmd, QIODevice::ReadOnly);
-    proc.waitForStarted();
-    proc.waitForFinished();
+    proc.waitForStarted(timeout);
+    proc.waitForFinished(timeout);
 
     return proc.exitCode();
 }

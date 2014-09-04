@@ -45,6 +45,10 @@ public:
     bool save_log;
     bool compare_via_checksum;
 
+    bool notify;
+    QString notifyRecipients;
+
+    void startBackup();
     void startBackup(DeviceDiskPartition *part);
 };
 

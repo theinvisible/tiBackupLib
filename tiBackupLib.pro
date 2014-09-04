@@ -30,8 +30,8 @@ unix {
     INSTALLS += target
 }
 
-unix:!macx:!symbian: LIBS += -ludev -lblkid
+unix:!macx:!symbian: LIBS += -L/usr/local/lib -lPocoFoundation -lPocoNet -ludev -lblkid
 
-
+INCLUDEPATH += /usr/local/include
 QMAKE_CXXFLAGS_DEBUG += -pipe
-QMAKE_CXXFLAGS_RELEASE += -pipe -O2 -march=native
+QMAKE_CXXFLAGS_RELEASE += -pipe -O2

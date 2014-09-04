@@ -45,8 +45,8 @@ public:
     bool isMounted(const QString &dev_path);
     QString getMountDir(const QString &dev_path);
 
-    QString runCommandwithOutput(const QString &cmd);
-    int runCommandwithReturnCode(const QString &cmd);
+    QString runCommandwithOutput(const QString &cmd, int timeout = 50000);
+    int runCommandwithReturnCode(const QString &cmd, int timeout = 50000);
 
     static QString convertPath2Generic(const QString &path, const QString &mountdir);
     static QString convertGeneric2Path(const QString &path, const QString &mountdir);

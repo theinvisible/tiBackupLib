@@ -27,11 +27,34 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 #include <QDir>
 #include <QDateTime>
 
+#include "Poco/Net/MailMessage.h"
+#include "Poco/Net/SMTPClientSession.h"
+#include "Poco/Net/FilePartSource.h"
+#include "Poco/Net/StringPartSource.h"
+
 #include "../tibackuplib.h"
 #include "../ticonf.h"
 
 tiBackupJob::tiBackupJob()
 {
+}
+
+void tiBackupJob::startBackup()
+{
+    if(partition_uuid.isEmpty())
+    {
+        qDebug() << "tiBackupJob::startBackup() -> Partition-UUID is not set";
+        return;
+    }
+
+    DeviceDiskPartition part = TiBackupLib::getPartitionByUUID(partition_uuid);
+    if(part.name.isEmpty())
+    {
+        qDebug() << "tiBackupJob::startBackup() -> Disk for BackupJob ist not attached, aborting";
+        return;
+    }
+
+    startBackup(&part);
 }
 
 void tiBackupJob::startBackup(DeviceDiskPartition *part)
@@ -54,6 +77,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         backupArg.append("--checksum ");
     }
 
+    QString logpath;
     if(save_log == true)
     {
         qDebug() << "tiBackupJob::startBackup() -> Rsync Log will be archived";
@@ -63,7 +87,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         if(!logdir.exists())
             logdir.mkpath(logpathdir);
 
-        QString logpath = QString("%1/%2.log").arg(logpathdir, currentDate.toString("yyyyMMdd-hhmmss"));
+        logpath = QString("%1/%2.log").arg(logpathdir, currentDate.toString("yyyyMMdd-hhmmss"));
         backupArg.append(QString("--log-file=%1 ").arg(logpath));
     }
 
@@ -90,7 +114,33 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
 
         qDebug() << QString("We backup now %1 to %2").arg(src, dest);
 
-        lib.runCommandwithReturnCode(QString("rsync -a %1 %2 %3").arg(backupArg, src, dest));
+        lib.runCommandwithReturnCode(QString("rsync -a %1 %2 %3").arg(backupArg, src, dest), -1);
+    }
+
+    // We notify the recipients now about the status
+    if(notify == true)
+    {
+        qDebug() << "tiBackupJob::startBackup() -> We send notification now to " << notifyRecipients;
+
+        Poco::Net::MailRecipient recipient(Poco::Net::MailRecipient::PRIMARY_RECIPIENT, notifyRecipients.toStdString());
+
+        Poco::Net::MailMessage mail;
+        mail.addRecipient(recipient);
+        mail.setSender("tiBackup Backupsystem <tibackup@iteas.at>");
+        mail.setSubject(QString("Informationen zum Backupjob <%1>").arg(name).toStdString());
+
+        mail.addContent(new Poco::Net::StringPartSource("Der Backupjob wurde abgeschlossen."));
+        mail.addPart("html_msg", new Poco::Net::StringPartSource("Der Backupjob <b>wurde</b> abgeschlossen.", "text/html; charset=utf-8"), Poco::Net::MailMessage::CONTENT_INLINE, Poco::Net::MailMessage::ENCODING_8BIT);
+
+        if(save_log == true)
+        {
+            mail.addAttachment("rsync.log", new Poco::Net::FilePartSource(logpath.toStdString()));
+        }
+
+        Poco::Net::SMTPClientSession smtp(main_settings.getValue("smtp/server").toString().toStdString());
+        smtp.login();
+        smtp.sendMessage(mail);
+        smtp.close();
     }
 
     lib.umountPartition(part);
