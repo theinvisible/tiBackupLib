@@ -27,6 +27,7 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 #include <QDir>
 #include <QDateTime>
 
+#include "Poco/Net/NetException.h"
 #include "Poco/Net/MailMessage.h"
 #include "Poco/Net/SMTPClientSession.h"
 #include "Poco/Net/FilePartSource.h"
@@ -129,18 +130,53 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         mail.setSender("tiBackup Backupsystem <tibackup@iteas.at>");
         mail.setSubject(QString("Informationen zum Backupjob <%1>").arg(name).toStdString());
 
-        mail.addContent(new Poco::Net::StringPartSource("Der Backupjob wurde abgeschlossen."));
-        mail.addPart("html_msg", new Poco::Net::StringPartSource("Der Backupjob <b>wurde</b> abgeschlossen.", "text/html; charset=utf-8"), Poco::Net::MailMessage::CONTENT_INLINE, Poco::Net::MailMessage::ENCODING_8BIT);
+        QString mailMsg = QString("Der Backupjob %1 wurde abgeschlossen, Sie können das Laufwerk %2 nun entfernen.").arg(name, device);
+
+        mail.addContent(new Poco::Net::StringPartSource(mailMsg.toStdString()));
+        //mail.addPart("html_msg", new Poco::Net::StringPartSource("Der Backupjob <b>wurde</b> abgeschlossen.", "text/html; charset=utf-8"), Poco::Net::MailMessage::CONTENT_INLINE, Poco::Net::MailMessage::ENCODING_8BIT);
 
         if(save_log == true)
         {
             mail.addAttachment("rsync.log", new Poco::Net::FilePartSource(logpath.toStdString()));
         }
 
-        Poco::Net::SMTPClientSession smtp(main_settings.getValue("smtp/server").toString().toStdString());
-        smtp.login();
-        smtp.sendMessage(mail);
-        smtp.close();
+        Poco::Net::SMTPClientSession *smtp = 0;
+
+        try
+        {
+            smtp = new Poco::Net::SMTPClientSession(main_settings.getValue("smtp/server").toString().toStdString());
+
+            if(main_settings.getValue("smtp/auth").toBool() == true)
+            {
+                smtp->login(Poco::Net::SMTPClientSession::AUTH_PLAIN, main_settings.getValue("smtp/username").toString().toStdString(), main_settings.getValue("smtp/password").toString().toStdString());
+            }
+            else
+            {
+                smtp->login();
+            }
+
+            smtp->sendMessage(mail);
+            smtp->close();
+
+            qDebug() << "tiBackupJob::startBackup() -> Mail message was send to " << notifyRecipients;
+        }
+        catch(Poco::Net::SMTPException e)
+        {
+            qDebug() << "tiBackupJob::startBackup() -> Mail message was NOT send. Error occured: " << QString::fromStdString(e.message());
+        }
+        catch(Poco::Net::HostNotFoundException e)
+        {
+            qDebug() << "tiBackupJob::startBackup() -> Mail message was NOT send. Hostname not found: " << QString::fromStdString(e.message());
+        }
+
+        /*
+        catch(...)
+        {
+            qDebug() << "tiBackupJob::startBackup() -> Mail message was NOT send. Undefined error occured: ";
+        }
+        */
+
+        if(smtp != 0) delete smtp;
     }
 
     lib.umountPartition(part);
