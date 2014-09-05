@@ -44,6 +44,7 @@ public slots:
 
 private:
     bool isDeviceUSB(struct udev_device *device);
+    bool isDeviceATA(struct udev_device *device);
     void print_device(struct udev_device *device, const char *source);
 
 };

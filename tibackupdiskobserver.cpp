@@ -110,7 +110,7 @@ void tiBackupDiskObserver::start()
                 continue;
 
             //check presence
-            if( isDeviceUSB(device) )
+            if( isDeviceUSB(device) || isDeviceATA(device) )
             {
                 /*
                 if(!s_bSD_present) //guard for double "change" events
@@ -175,28 +175,52 @@ void tiBackupDiskObserver::start()
 }
 
 bool tiBackupDiskObserver::isDeviceUSB(struct udev_device *device)
+{
+    bool retVal = false;
+    struct udev_list_entry *list_entry = 0;
+    struct udev_list_entry* model_entry = 0;
+
+    //print_device(device, "UDEV");
+
+    list_entry = udev_device_get_properties_list_entry(device);
+    model_entry = udev_list_entry_get_by_name(list_entry, "ID_BUS");
+    if( 0 != model_entry )
     {
-        bool retVal = false;
-        struct udev_list_entry *list_entry = 0;
-        struct udev_list_entry* model_entry = 0;
-
-        //print_device(device, "UDEV");
-
-        list_entry = udev_device_get_properties_list_entry(device);
-        model_entry = udev_list_entry_get_by_name(list_entry, "ID_BUS");
-        if( 0 != model_entry )
+        const char* szModelValue = udev_list_entry_get_value(model_entry);
+        if( strcmp( szModelValue, "usb") == 0 )
         {
-            const char* szModelValue = udev_list_entry_get_value(model_entry);
-            if( strcmp( szModelValue, "usb") == 0 )
-            {
-                //printf("Device is SD \n");
-                retVal = true;
+            //printf("Device is SD \n");
+            retVal = true;
 
-                print_device(device, "UDEV");
-            }
+            print_device(device, "UDEV");
         }
-        return retVal;
     }
+    return retVal;
+}
+
+bool tiBackupDiskObserver::isDeviceATA(udev_device *device)
+{
+    bool retVal = false;
+    struct udev_list_entry *list_entry = 0;
+    struct udev_list_entry* model_entry = 0;
+
+    //print_device(device, "UDEV");
+
+    list_entry = udev_device_get_properties_list_entry(device);
+    model_entry = udev_list_entry_get_by_name(list_entry, "ID_BUS");
+    if( 0 != model_entry )
+    {
+        const char* szModelValue = udev_list_entry_get_value(model_entry);
+        if( strcmp( szModelValue, "ata") == 0 )
+        {
+            //printf("Device is SD \n");
+            retVal = true;
+
+            print_device(device, "UDEV");
+        }
+    }
+    return retVal;
+}
 
 void tiBackupDiskObserver::print_device(struct udev_device *device, const char *source)
 {
