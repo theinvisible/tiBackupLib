@@ -61,16 +61,20 @@ void tiConfMain::initMainConf()
 
         QString backupjobs_dir = QString("%1/jobs").arg(conf_main_dir.absolutePath());
         QString logs_dir = QString("%1/logs").arg(conf_main_dir.absolutePath());
+        QString scripts_dir = QString("%1/scripts").arg(conf_main_dir.absolutePath());
 
         QDir backupjobsdir_path(backupjobs_dir);
         backupjobsdir_path.mkpath(backupjobs_dir);
         QDir logsdir_path(logs_dir);
         logsdir_path.mkpath(logs_dir);
+        QDir scriptsdir_path(scripts_dir);
+        scriptsdir_path.mkpath(scripts_dir);
 
         QSettings conf(tibackup_config::file_main, QSettings::IniFormat);
         conf.setValue("main/debug", true);
         conf.setValue("paths/backupjobs", backupjobs_dir);
         conf.setValue("paths/logs", logs_dir);
+        conf.setValue("paths/scripts", scripts_dir);
         conf.sync();
     }
 }
@@ -147,6 +151,11 @@ void tiConfBackupJobs::saveBackupJob(const tiBackupJob &job)
     f->setValue("recipients", job.notifyRecipients);
     f->endGroup();
 
+    f->beginGroup("scripts");
+    f->setValue("beforeBackup", job.scriptBeforeBackup);
+    f->setValue("afterBackup", job.scriptAfterBackup);
+    f->endGroup();
+
     f->sync();
     delete f;
 }
@@ -193,6 +202,11 @@ void tiConfBackupJobs::readBackupJobs()
             f->beginGroup("notify");
             job->notify = f->value("enabled").toBool();
             job->notifyRecipients = f->value("recipients").toString();
+            f->endGroup();
+
+            f->beginGroup("scripts");
+            job->scriptBeforeBackup = f->value("beforeBackup").toString();
+            job->scriptAfterBackup = f->value("afterBackup").toString();
             f->endGroup();
 
             jobs.append(job);

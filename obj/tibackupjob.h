@@ -48,6 +48,9 @@ public:
     bool notify;
     QString notifyRecipients;
 
+    QString scriptBeforeBackup;
+    QString scriptAfterBackup;
+
     void startBackup();
     void startBackup(DeviceDiskPartition *part);
 };
