@@ -103,6 +103,34 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         qDebug() << "tiBackupJob::startBackup() -> Device was not mounted, mounting on" << deviceMountDir;
     }
 
+    // Execute external script if set
+    if(!scriptBeforeBackup.isEmpty() && QFile::exists(scriptBeforeBackup))
+    {
+        qDebug() << QString("Script <%1> wird als Vorlage genommen").arg(scriptBeforeBackup);
+
+        // We replace vars defined in scripts, so we write temporary file and execute it then
+        QFile script(scriptBeforeBackup);
+        script.open(QIODevice::ReadOnly | QIODevice::Text);
+        QString scriptSource = QString(script.readAll());
+        script.close();
+
+        // We write now temporary file
+        QDateTime currentDate = QDateTime::currentDateTime();
+        QString tmpfilename = QString("/tmp/%1_%2").arg(name, currentDate.toString("yyyyMMddhhmmss"));
+        QFile tmpScript(tmpfilename);
+        tmpScript.open(QIODevice::WriteOnly | QIODevice::Text);
+        QTextStream out(&tmpScript);
+        QString tmpSource = TiBackupLib::convertGeneric2Path(scriptSource, deviceMountDir);
+        out << tmpSource;
+        tmpScript.setPermissions(QFile::ReadOwner | QFile::ExeOwner);
+        tmpScript.close();
+
+        qDebug() << QString("Computed Script <%1> wird vor Backup ausgefuehrt").arg(tmpfilename);
+
+        lib.runCommandwithReturnCode(tmpfilename, -1);
+        tmpScript.remove();
+    }
+
     // We get now the folders to backup
     QString src, dest;
     QHashIterator<QString, QString> it(backupdirs);
