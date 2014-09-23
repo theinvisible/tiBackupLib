@@ -163,7 +163,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         mail.addContent(new Poco::Net::StringPartSource(mailMsg.toStdString()));
         //mail.addPart("html_msg", new Poco::Net::StringPartSource("Der Backupjob <b>wurde</b> abgeschlossen.", "text/html; charset=utf-8"), Poco::Net::MailMessage::CONTENT_INLINE, Poco::Net::MailMessage::ENCODING_8BIT);
 
-        if(save_log == true)
+        if(save_log == true && QFile::exists(logpath))
         {
             mail.addAttachment("rsync.log", new Poco::Net::FilePartSource(logpath.toStdString()));
         }
