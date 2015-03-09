@@ -37,20 +37,13 @@ void DeviceDisk::readPartitions()
 {
     partitions.clear();
 
-    qDebug() << "dd1:" << devname ;
-
     if(devname.isEmpty())
         return;
-
-    qDebug() << "dd11:" << devname ;
-
 
     blkid_probe pr = blkid_new_probe_from_filename(devname.toStdString().c_str());
     if (!pr) {
        return;
     }
-
-    qDebug() << "dd2";
 
     // Get number of partitions
     blkid_partlist ls;
@@ -59,13 +52,9 @@ void DeviceDisk::readPartitions()
     ls = blkid_probe_get_partitions(pr);
     nparts = blkid_partlist_numof_partitions(ls);
 
-    qDebug() << "dd22";
-
     if (nparts <= 0){
        return;
     }
-
-    qDebug() << "dd3";
 
     // Get UUID, label and type
     const char *uuid = 0;

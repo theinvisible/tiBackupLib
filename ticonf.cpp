@@ -37,7 +37,7 @@ tiConfMain::tiConfMain()
 
     if(!QFile(tibackup_config::file_main).exists())
     {
-        qDebug() << QString("Main configuration file <").append(tibackup_config::file_main).append("> not found, please fix this...");
+        qCritical() << QString("tiConfMain::tiConfMain() -> Main configuration file <").append(tibackup_config::file_main).append("> not found, please fix this...");
         exit(EXIT_FAILURE);
     }
 
@@ -173,7 +173,7 @@ void tiConfBackupJobs::readBackupJobs()
         jobfilepath = it_jobdir.next();
         if(jobfilepath.endsWith(".conf"))
         {
-            qDebug() << "jobfile found:" << jobfilepath;
+            qDebug() << "tiConfBackupJobs::readBackupJobs() -> jobfile found:" << jobfilepath;
 
             QSettings *f = new QSettings(jobfilepath, QSettings::IniFormat);
             tiBackupJob *job = new tiBackupJob;

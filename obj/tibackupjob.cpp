@@ -106,7 +106,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
     // Execute external script before backup if set
     if(!scriptBeforeBackup.isEmpty() && QFile::exists(scriptBeforeBackup))
     {
-        qDebug() << QString("Script <%1> wird als Vorlage genommen").arg(scriptBeforeBackup);
+        qDebug() << QString("tiBackupJob::startBackup() -> Script <%1> wird als Vorlage genommen").arg(scriptBeforeBackup);
 
         // We replace vars defined in scripts, so we write temporary file and execute it then
         QFile script(scriptBeforeBackup);
@@ -125,7 +125,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         tmpScript.setPermissions(QFile::ReadOwner | QFile::ExeOwner);
         tmpScript.close();
 
-        qDebug() << QString("Computed Script <%1> wird vor Backup ausgefuehrt:").arg(tmpfilename);
+        qDebug() << QString("tiBackupJob::startBackup() -> Computed Script <%1> wird vor Backup ausgefuehrt:").arg(tmpfilename);
         qDebug() << tmpSource;
 
         lib.runCommandwithReturnCode(tmpfilename, -1);
@@ -142,7 +142,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         src = it.key();
         dest = TiBackupLib::convertGeneric2Path(it.value(), deviceMountDir);
 
-        qDebug() << QString("We backup now %1 to %2").arg(src, dest);
+        qDebug() << QString("tiBackupJob::startBackup() -> We backup now %1 to %2").arg(src, dest);
 
         lib.runCommandwithReturnCode(QString("rsync -a %1 %2 %3").arg(backupArg, src, dest), -1);
     }
@@ -150,7 +150,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
     // Execute external script after backup if set
     if(!scriptAfterBackup.isEmpty() && QFile::exists(scriptAfterBackup))
     {
-        qDebug() << QString("Script <%1> wird als Vorlage genommen").arg(scriptAfterBackup);
+        qDebug() << QString("tiBackupJob::startBackup() -> Script <%1> wird als Vorlage genommen").arg(scriptAfterBackup);
 
         // We replace vars defined in scripts, so we write temporary file and execute it then
         QFile script(scriptAfterBackup);
@@ -169,7 +169,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         tmpScript.setPermissions(QFile::ReadOwner | QFile::ExeOwner);
         tmpScript.close();
 
-        qDebug() << QString("Computed Script <%1> wird vor Backup ausgefuehrt:").arg(tmpfilename);
+        qDebug() << QString("tiBackupJob::startBackup() -> Computed Script <%1> wird vor Backup ausgefuehrt:").arg(tmpfilename);
         qDebug() << tmpSource;
 
         lib.runCommandwithReturnCode(tmpfilename, -1);
