@@ -103,7 +103,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         qDebug() << "tiBackupJob::startBackup() -> Device was not mounted, mounting on" << deviceMountDir;
     }
 
-    // Execute external script if set
+    // Execute external script before backup if set
     if(!scriptBeforeBackup.isEmpty() && QFile::exists(scriptBeforeBackup))
     {
         qDebug() << QString("Script <%1> wird als Vorlage genommen").arg(scriptBeforeBackup);
@@ -125,7 +125,8 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         tmpScript.setPermissions(QFile::ReadOwner | QFile::ExeOwner);
         tmpScript.close();
 
-        qDebug() << QString("Computed Script <%1> wird vor Backup ausgefuehrt").arg(tmpfilename);
+        qDebug() << QString("Computed Script <%1> wird vor Backup ausgefuehrt:").arg(tmpfilename);
+        qDebug() << tmpSource;
 
         lib.runCommandwithReturnCode(tmpfilename, -1);
         tmpScript.remove();
@@ -144,6 +145,35 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         qDebug() << QString("We backup now %1 to %2").arg(src, dest);
 
         lib.runCommandwithReturnCode(QString("rsync -a %1 %2 %3").arg(backupArg, src, dest), -1);
+    }
+
+    // Execute external script after backup if set
+    if(!scriptAfterBackup.isEmpty() && QFile::exists(scriptAfterBackup))
+    {
+        qDebug() << QString("Script <%1> wird als Vorlage genommen").arg(scriptAfterBackup);
+
+        // We replace vars defined in scripts, so we write temporary file and execute it then
+        QFile script(scriptAfterBackup);
+        script.open(QIODevice::ReadOnly | QIODevice::Text);
+        QString scriptSource = QString(script.readAll());
+        script.close();
+
+        // We write now temporary file
+        QDateTime currentDate = QDateTime::currentDateTime();
+        QString tmpfilename = QString("/tmp/%1_%2").arg(name, currentDate.toString("yyyyMMddhhmmss"));
+        QFile tmpScript(tmpfilename);
+        tmpScript.open(QIODevice::WriteOnly | QIODevice::Text);
+        QTextStream out(&tmpScript);
+        QString tmpSource = TiBackupLib::convertGeneric2Path(scriptSource, deviceMountDir);
+        out << tmpSource;
+        tmpScript.setPermissions(QFile::ReadOwner | QFile::ExeOwner);
+        tmpScript.close();
+
+        qDebug() << QString("Computed Script <%1> wird vor Backup ausgefuehrt:").arg(tmpfilename);
+        qDebug() << tmpSource;
+
+        lib.runCommandwithReturnCode(tmpfilename, -1);
+        tmpScript.remove();
     }
 
     // We notify the recipients now about the status
