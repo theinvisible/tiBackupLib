@@ -261,7 +261,7 @@ QString TiBackupLib::runCommandwithOutput(const QString &cmd, int timeout)
 
 int TiBackupLib::runCommandwithReturnCode(const QString &cmd, int timeout)
 {
-    qDebug() << "run command::" << cmd;
+    qDebug() << "TiBackupLib::runCommandwithReturnCode() -> run command::" << cmd;
 
     QProcess proc;
     proc.start(cmd, QIODevice::ReadOnly);
