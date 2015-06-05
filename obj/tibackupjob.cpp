@@ -65,6 +65,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
 
     QString deviceMountDir;
     QString backupArg;
+    QList<QString> bakMessages;
 
     if(delete_add_file_on_dest == true)
     {
@@ -126,9 +127,18 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         tmpScript.close();
 
         qDebug() << QString("tiBackupJob::startBackup() -> Computed Script <%1> wird vor Backup ausgefuehrt:").arg(tmpfilename);
+        qDebug() << "------------------------------";
         qDebug() << tmpSource;
+        qDebug() << "------------------------------";
 
-        lib.runCommandwithReturnCode(tmpfilename, -1);
+        if(lib.runCommandwithReturnCode(tmpfilename, -1) != 0)
+        {
+            bakMessages.append("Script vor Backup wurde nicht richtig ausgeführt.");
+        }
+        else
+        {
+            bakMessages.append("Script vor Backup wurde richtig ausgeführt.");
+        }
         tmpScript.remove();
     }
 
@@ -170,9 +180,18 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         tmpScript.close();
 
         qDebug() << QString("tiBackupJob::startBackup() -> Computed Script <%1> wird vor Backup ausgefuehrt:").arg(tmpfilename);
+        qDebug() << "------------------------------";
         qDebug() << tmpSource;
+        qDebug() << "------------------------------";
 
-        lib.runCommandwithReturnCode(tmpfilename, -1);
+        if(lib.runCommandwithReturnCode(tmpfilename, -1) != 0)
+        {
+            bakMessages.append("Script nach Backup wurde nicht richtig ausgeführt.");
+        }
+        else
+        {
+            bakMessages.append("Script nach Backup wurde richtig ausgeführt.");
+        }
         tmpScript.remove();
     }
 
@@ -188,7 +207,11 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         mail.setSender("tiBackup Backupsystem <tibackup@iteas.at>");
         mail.setSubject(QString("Informationen zum Backupjob <%1>").arg(name).toStdString());
 
-        QString mailMsg = QString("Der Backupjob %1 wurde abgeschlossen, Sie können das Laufwerk %2 nun entfernen.").arg(name, device);
+        QString mailMsg = QString("Der Backupjob <%1> wurde abgeschlossen, Sie können das Laufwerk %2 nun entfernen. \n\nGenerierte Nachrichten: \n\n").arg(name, device);
+        for(int i=0; i < bakMessages.count() ; i++)
+        {
+            mailMsg.append(QString("%1\n").arg(bakMessages.at(i)));
+        }
 
         mail.addContent(new Poco::Net::StringPartSource(mailMsg.toStdString()));
         //mail.addPart("html_msg", new Poco::Net::StringPartSource("Der Backupjob <b>wurde</b> abgeschlossen.", "text/html; charset=utf-8"), Poco::Net::MailMessage::CONTENT_INLINE, Poco::Net::MailMessage::ENCODING_8BIT);
