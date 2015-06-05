@@ -29,6 +29,13 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 
 #include "devicedisk.h"
 
+enum tiBackupJobInterval {
+    tiBackupJobIntervalNONE,
+    tiBackupJobIntervalDAILY,
+    tiBackupJobIntervalWEEKLY,
+    tiBackupJobIntervalMONTHLY
+};
+
 class tiBackupJob
 {
 public:
@@ -50,6 +57,10 @@ public:
 
     QString scriptBeforeBackup;
     QString scriptAfterBackup;
+
+    tiBackupJobInterval intervalType;
+    QString intervalTime;
+    int intervalDay;
 
     void startBackup();
     void startBackup(DeviceDiskPartition *part);

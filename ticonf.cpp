@@ -156,6 +156,12 @@ void tiConfBackupJobs::saveBackupJob(const tiBackupJob &job)
     f->setValue("afterBackup", job.scriptAfterBackup);
     f->endGroup();
 
+    f->beginGroup("task");
+    f->setValue("type", static_cast<int>(job.intervalType));
+    f->setValue("time", job.intervalTime);
+    f->setValue("day", job.intervalDay);
+    f->endGroup();
+
     f->sync();
     delete f;
 }
@@ -207,6 +213,12 @@ void tiConfBackupJobs::readBackupJobs()
             f->beginGroup("scripts");
             job->scriptBeforeBackup = f->value("beforeBackup").toString();
             job->scriptAfterBackup = f->value("afterBackup").toString();
+            f->endGroup();
+
+            f->beginGroup("task");
+            job->intervalType = static_cast<tiBackupJobInterval>(f->value("type").toInt());
+            job->intervalTime = f->value("time").toString();
+            job->intervalDay = f->value("day").toInt();
             f->endGroup();
 
             jobs.append(job);
