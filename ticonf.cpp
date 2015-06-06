@@ -75,6 +75,7 @@ void tiConfMain::initMainConf()
         conf.setValue("paths/backupjobs", backupjobs_dir);
         conf.setValue("paths/logs", logs_dir);
         conf.setValue("paths/scripts", scripts_dir);
+        conf.setValue("paths/initd", tibackup_config::initd_default);
         conf.sync();
     }
 }

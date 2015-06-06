@@ -15,7 +15,8 @@ SOURCES += tibackuplib.cpp \
     obj/devicedisk.cpp \
     tibackupdiskobserver.cpp \
     ticonf.cpp \
-    obj/tibackupjob.cpp
+    obj/tibackupjob.cpp \
+    tibackupservice.cpp
 
 HEADERS += tibackuplib.h\
         tibackuplib_global.h \
@@ -23,7 +24,8 @@ HEADERS += tibackuplib.h\
     tibackupdiskobserver.h \
     ticonf.h \
     config.h \
-    obj/tibackupjob.h
+    obj/tibackupjob.h \
+    tibackupservice.h
 
 unix {
     target.path = /usr/lib

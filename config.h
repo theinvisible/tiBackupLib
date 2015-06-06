@@ -29,6 +29,7 @@ namespace tibackup_config
     static const char __attribute__ ((unused)) *version = "0.3-dev";
     static const char __attribute__ ((unused)) *file_main = "/usr/local/etc/tibackup/main.conf";
     static const char __attribute__ ((unused)) *mount_root = "/mnt";
+    static const char __attribute__ ((unused)) *initd_default = "/etc/init.d/tibackup";
 
     static const char __attribute__ ((unused)) *var_partbackup_dir = "%MNTBACKUPDIR%";
 }
