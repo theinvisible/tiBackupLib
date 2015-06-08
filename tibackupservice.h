@@ -9,7 +9,8 @@ enum tiBackupServiceStatus {
     tiBackupServiceStatusStarted,
     tiBackupServiceStatusStopped,
     tiBackupServiceStatusUnknown,
-    tiBackupServiceStatusFailed
+    tiBackupServiceStatusFailed,
+    tiBackupServiceStatusNotFound
 };
 
 class tiBackupService : public QObject
