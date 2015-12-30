@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/init">
+        <file alias="tibackup">res/tibackup</file>
+    </qresource>
+</RCC>

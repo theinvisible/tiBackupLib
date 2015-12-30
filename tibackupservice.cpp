@@ -60,3 +60,35 @@ tiBackupServiceStatus tiBackupService::status()
 
 }
 
+bool tiBackupService::install(const QString &path)
+{
+    qDebug() << "tiBackupService::install()";
+
+    QFile *tiServicePath = new QFile(path);
+    if(!tiServicePath->open(QIODevice::WriteOnly | QIODevice::Text))
+        return false;
+    QTextStream out(tiServicePath);
+
+    QFile *tiServiceTemplate = new QFile(":/init/tibackup");
+    if(!tiServiceTemplate->open(QIODevice::ReadOnly | QIODevice::Text))
+    {
+        tiServicePath->close();
+        tiServicePath->deleteLater();
+        return false;
+    }
+    QTextStream in(tiServiceTemplate);
+
+    out << in.readAll();
+    out.flush();
+
+    tiServicePath->setPermissions(QFile::ReadOwner | QFile::ExeOwner | QFile::ReadGroup | QFile::ExeGroup | QFile::ReadOther);
+    tiServicePath->close();
+    tiServiceTemplate->close();
+
+    tiServicePath->deleteLater();
+    tiServiceTemplate->deleteLater();
+
+    emit serviceInstalled();
+    return true;
+}
+

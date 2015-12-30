@@ -22,10 +22,12 @@ public:
     tiBackupServiceStatus start();
     tiBackupServiceStatus stop();
     tiBackupServiceStatus status();
+    bool install(const QString &path);
 
 signals:
     void serviceStarted();
     void serviceStopped();
+    void serviceInstalled();
 
 public slots:
 

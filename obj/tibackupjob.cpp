@@ -107,7 +107,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
     // Execute external script before backup if set
     if(!scriptBeforeBackup.isEmpty() && QFile::exists(scriptBeforeBackup))
     {
-        qDebug() << QString("tiBackupJob::startBackup() -> Script <%1> wird als Vorlage genommen").arg(scriptBeforeBackup);
+        qDebug() << QString("tiBackupJob::startBackup() -> Script <%1> will be taken as template").arg(scriptBeforeBackup);
 
         // We replace vars defined in scripts, so we write temporary file and execute it then
         QFile script(scriptBeforeBackup);
@@ -126,18 +126,18 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         tmpScript.setPermissions(QFile::ReadOwner | QFile::ExeOwner);
         tmpScript.close();
 
-        qDebug() << QString("tiBackupJob::startBackup() -> Computed Script <%1> wird vor Backup ausgefuehrt:").arg(tmpfilename);
+        qDebug() << QString("tiBackupJob::startBackup() -> Computed Script <%1> will be executed before backup:").arg(tmpfilename);
         qDebug() << "------------------------------";
         qDebug() << tmpSource;
         qDebug() << "------------------------------";
 
         if(lib.runCommandwithReturnCode(tmpfilename, -1) != 0)
         {
-            bakMessages.append("Script vor Backup wurde nicht richtig ausgeführt.");
+            bakMessages.append("Script before Backup was not executed properly.");
         }
         else
         {
-            bakMessages.append("Script vor Backup wurde richtig ausgeführt.");
+            bakMessages.append("Script before Backup was executed properly.");
         }
         tmpScript.remove();
     }
@@ -160,7 +160,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
     // Execute external script after backup if set
     if(!scriptAfterBackup.isEmpty() && QFile::exists(scriptAfterBackup))
     {
-        qDebug() << QString("tiBackupJob::startBackup() -> Script <%1> wird als Vorlage genommen").arg(scriptAfterBackup);
+        qDebug() << QString("tiBackupJob::startBackup() -> Script <%1> will be taken as template").arg(scriptAfterBackup);
 
         // We replace vars defined in scripts, so we write temporary file and execute it then
         QFile script(scriptAfterBackup);
@@ -179,18 +179,18 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         tmpScript.setPermissions(QFile::ReadOwner | QFile::ExeOwner);
         tmpScript.close();
 
-        qDebug() << QString("tiBackupJob::startBackup() -> Computed Script <%1> wird vor Backup ausgefuehrt:").arg(tmpfilename);
+        qDebug() << QString("tiBackupJob::startBackup() -> Computed Script <%1> will be executed before backup:").arg(tmpfilename);
         qDebug() << "------------------------------";
         qDebug() << tmpSource;
         qDebug() << "------------------------------";
 
         if(lib.runCommandwithReturnCode(tmpfilename, -1) != 0)
         {
-            bakMessages.append("Script nach Backup wurde nicht richtig ausgeführt.");
+            bakMessages.append("Script before Backup was not executed properly.");
         }
         else
         {
-            bakMessages.append("Script nach Backup wurde richtig ausgeführt.");
+            bakMessages.append("Script before Backup was executed properly.");
         }
         tmpScript.remove();
     }
@@ -205,9 +205,9 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         Poco::Net::MailMessage mail;
         mail.addRecipient(recipient);
         mail.setSender("tiBackup Backupsystem <tibackup@iteas.at>");
-        mail.setSubject(QString("Informationen zum Backupjob <%1>").arg(name).toStdString());
+        mail.setSubject(QString("Information for backupjob <%1>").arg(name).toStdString());
 
-        QString mailMsg = QString("Der Backupjob <%1> wurde abgeschlossen, Sie können das Laufwerk %2 nun entfernen. \n\nGenerierte Nachrichten: \n\n").arg(name, device);
+        QString mailMsg = QString("Backupjob <%1> was executed, you can now detach drive %2. \n\nGenerated backup information: \n\n").arg(name, device);
         for(int i=0; i < bakMessages.count() ; i++)
         {
             mailMsg.append(QString("%1\n").arg(bakMessages.at(i)));
