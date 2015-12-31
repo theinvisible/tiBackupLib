@@ -1,0 +1,8 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_install:
+	mkdir -p debian/tibackuplib/usr/lib
+	cp -a libtiBackupLib.so* debian/tibackuplib/usr/lib/.

@@ -1,0 +1,13 @@
+Source: tibackuplib
+Section: admin
+Priority: optional
+Maintainer: Rene Hadler <rene@iksdeh.at>
+Build-Depends: debhelper (>= 8.0.0)
+
+Package: tibackuplib
+Architecture: amd64
+Depends: ${shlibs:Depends}
+Conflicts:
+Replaces:
+Provides: tibackuplib
+Description: Main library for tibackup program
