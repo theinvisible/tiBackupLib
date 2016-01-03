@@ -16,7 +16,9 @@ SOURCES += tibackuplib.cpp \
     tibackupdiskobserver.cpp \
     ticonf.cpp \
     obj/tibackupjob.cpp \
-    tibackupservice.cpp
+    tibackupservice.cpp \
+    tibackupapi.cpp \
+    workers/tibackupjobworker.cpp
 
 HEADERS += tibackuplib.h\
         tibackuplib_global.h \
@@ -25,7 +27,9 @@ HEADERS += tibackuplib.h\
     ticonf.h \
     config.h \
     obj/tibackupjob.h \
-    tibackupservice.h
+    tibackupservice.h \
+    tibackupapi.h \
+    workers/tibackupjobworker.h
 
 unix {
     target.path = /usr/lib
@@ -34,7 +38,7 @@ unix {
 
 unix:!macx:!symbian: LIBS += -lPocoFoundation -lPocoNet -ludev -lblkid
 
-INCLUDEPATH += /usr/local/include
+#INCLUDEPATH += /usr/local/include
 QMAKE_CXXFLAGS_DEBUG += -pipe
 QMAKE_CXXFLAGS_RELEASE += -pipe -O2
 

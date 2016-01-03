@@ -229,7 +229,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
 
             if(main_settings.getValue("smtp/auth").toBool() == true)
             {
-                smtp->login(Poco::Net::SMTPClientSession::AUTH_PLAIN, main_settings.getValue("smtp/username").toString().toStdString(), main_settings.getValue("smtp/password").toString().toStdString());
+                smtp->login(Poco::Net::SMTPClientSession::AUTH_LOGIN, main_settings.getValue("smtp/username").toString().toStdString(), main_settings.getValue("smtp/password").toString().toStdString());
             }
             else
             {
