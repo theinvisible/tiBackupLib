@@ -18,7 +18,8 @@ SOURCES += tibackuplib.cpp \
     obj/tibackupjob.cpp \
     tibackupservice.cpp \
     tibackupapi.cpp \
-    workers/tibackupjobworker.cpp
+    workers/tibackupjobworker.cpp \
+    obj/exitcodes.cpp
 
 HEADERS += tibackuplib.h\
         tibackuplib_global.h \
@@ -29,7 +30,8 @@ HEADERS += tibackuplib.h\
     obj/tibackupjob.h \
     tibackupservice.h \
     tibackupapi.h \
-    workers/tibackupjobworker.h
+    workers/tibackupjobworker.h \
+    obj/exitcodes.h
 
 unix {
     target.path = /usr/lib

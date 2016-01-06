@@ -57,7 +57,6 @@ public:
     QList<tiBackupJob*> getJobsByUuid(const QString &uuid);
     tiBackupJob* getJobByName(const QString &jobname);
 
-    bool removeJob(const tiBackupJob &job);
     bool removeJobByName(const QString &jobname);
 
     bool renameJob(const QString &oldname, const QString &newname);
