@@ -192,7 +192,7 @@ QString TiBackupLib::mountPartition(DeviceDiskPartition *part)
         m_dir.mkdir(mount_dir);
 
     //int ret = mount(part->name.toStdString().c_str(), mount_dir.toStdString().c_str(), part->type.toStdString().c_str(), 0, 0);
-    int ret = runCommandwithReturnCode(QString("mount %1 %2").arg(part->name, mount_dir));
+    runCommandwithReturnCode(QString("mount %1 %2").arg(part->name, mount_dir));
 
     return mount_dir;
 }
@@ -201,7 +201,7 @@ void TiBackupLib::umountPartition(DeviceDiskPartition *part)
 {
     QString mount_dir = QString(tibackup_config::mount_root).append("/").append(part->uuid);
     //int ret = umount(mount_dir.toStdString().c_str());
-    int ret = runCommandwithReturnCode(QString("umount %1").arg(mount_dir));
+    runCommandwithReturnCode(QString("umount %1").arg(mount_dir));
 }
 
 bool TiBackupLib::isMounted(const QString &dev_path)
@@ -230,7 +230,6 @@ QString TiBackupLib::getMountDir(const QString &dev_path)
 {
     FILE * mtab = NULL;
     struct mntent * part = NULL;
-    bool is_mounted = false;
     QString mount_dir;
 
     if(( mtab = setmntent("/etc/mtab", "r") ) != NULL)

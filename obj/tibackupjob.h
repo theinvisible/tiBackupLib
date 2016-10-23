@@ -36,6 +36,15 @@ enum tiBackupJobInterval {
     tiBackupJobIntervalMONTHLY
 };
 
+class tiBackupJobLog
+{
+public:
+    QString rsync_path;
+    QString source;
+    QString destination;
+    int ret_code;
+};
+
 class tiBackupJob
 {
 public:

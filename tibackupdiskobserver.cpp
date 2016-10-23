@@ -47,9 +47,6 @@ tiBackupDiskObserver::tiBackupDiskObserver(QObject *parent) : QObject(parent)
 void tiBackupDiskObserver::start()
 {
     struct udev *udev;
-    struct udev_enumerate *enumerate;
-    struct udev_list_entry *devices, *dev_list_entry;
-
     struct udev_list_entry *list_entry = 0;
     struct udev_list_entry* model_entry = 0;
 

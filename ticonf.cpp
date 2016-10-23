@@ -264,11 +264,6 @@ tiBackupJob *tiConfBackupJobs::getJobByName(const QString &jobname)
     return job;
 }
 
-bool tiConfBackupJobs::removeJob(const tiBackupJob &job)
-{
-
-}
-
 bool tiConfBackupJobs::removeJobByName(const QString &jobname)
 {
     return QFile::remove(QString("%1/%2.conf").arg(main_settings->getValue("paths/backupjobs").toString(), jobname));

@@ -33,6 +33,7 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 #include "Poco/Net/FilePartSource.h"
 #include "Poco/Net/StringPartSource.h"
 
+#include "exitcodes.h"
 #include "../tibackuplib.h"
 #include "../ticonf.h"
 
@@ -66,6 +67,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
     QString deviceMountDir;
     QString backupArg;
     QList<QString> bakMessages;
+    QList<tiBackupJobLog> bakLogs;
 
     if(delete_add_file_on_dest == true)
     {
@@ -77,20 +79,6 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
     {
         qDebug() << "tiBackupJob::startBackup() -> Checksum comparison enabled";
         backupArg.append("--checksum ");
-    }
-
-    QString logpath;
-    if(save_log == true)
-    {
-        qDebug() << "tiBackupJob::startBackup() -> Rsync Log will be archived";
-        QDateTime currentDate = QDateTime::currentDateTime();
-        QString logpathdir = QString("%1/%2").arg(main_settings.getValue("paths/logs").toString(), name);
-        QDir logdir(logpathdir);
-        if(!logdir.exists())
-            logdir.mkpath(logpathdir);
-
-        logpath = QString("%1/%2.log").arg(logpathdir, currentDate.toString("yyyyMMdd-hhmmss"));
-        backupArg.append(QString("--log-file=%1 ").arg(logpath));
     }
 
     if(lib.isMounted(part->name))
@@ -143,18 +131,36 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
     }
 
     // We get now the folders to backup
-    QString src, dest;
+    QString src, dest, logpath, backupFArgs;
     QHashIterator<QString, QString> it(backupdirs);
     while(it.hasNext())
     {
         it.next();
 
-        src = it.key();
-        dest = TiBackupLib::convertGeneric2Path(it.value(), deviceMountDir);
+        tiBackupJobLog log;
+        src = log.source = it.key();
+        dest = log.destination = TiBackupLib::convertGeneric2Path(it.value(), deviceMountDir);
+        backupFArgs = backupArg;
+
+        if(save_log == true)
+        {
+            qDebug() << "tiBackupJob::startBackup() -> Rsync Log will be archived";
+            QDateTime currentDate = QDateTime::currentDateTime();
+            QString logpathdir = QString("%1/%2").arg(main_settings.getValue("paths/logs").toString(), name);
+            QDir logdir(logpathdir);
+            if(!logdir.exists())
+                logdir.mkpath(logpathdir);
+
+            logpath = QString("%1/%2_%3.log").arg(logpathdir, currentDate.toString("yyyyMMdd-hhmmss"), QString::number(bakLogs.size()));
+            backupFArgs.append(QString("--log-file=%1 ").arg(logpath));
+
+            log.rsync_path = logpath;
+        }
 
         qDebug() << QString("tiBackupJob::startBackup() -> We backup now %1 to %2").arg(src, dest);
 
-        lib.runCommandwithReturnCode(QString("rsync -a %1 %2 %3").arg(backupArg, src, dest), -1);
+        log.ret_code = lib.runCommandwithReturnCode(QString("rsync -a %1 %2 %3").arg(backupFArgs, src, dest), -1);
+        bakLogs << log;
     }
 
     // Execute external script after backup if set
@@ -208,17 +214,35 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         mail.setSubject(QString("Information for backupjob <%1>").arg(name).toStdString());
 
         QString mailMsg = QString("Backupjob <%1> was executed, you can now detach drive %2. \n\nGenerated backup information: \n\n").arg(name, device);
+        if(bakMessages.count() == 0)
+        {
+            mailMsg.append(QString("  Backup scripts are okay.\n"));
+        }
+
         for(int i=0; i < bakMessages.count() ; i++)
         {
-            mailMsg.append(QString("%1\n").arg(bakMessages.at(i)));
+            mailMsg.append(QString("  %1\n").arg(bakMessages.at(i)));
+        }
+
+        // Rsync status
+        mailMsg.append(QString("\nRsync status information: \n\n"));
+        for(int ia=0; ia<bakLogs.size(); ia++)
+        {
+            tiBackupJobLog log = bakLogs.at(ia);
+            mailMsg.append(QString("  %1 -> %2 :: %3\n").arg(log.source, log.destination, exitCodesRsync::getMsg(log.ret_code)));
         }
 
         mail.addContent(new Poco::Net::StringPartSource(mailMsg.toStdString()));
         //mail.addPart("html_msg", new Poco::Net::StringPartSource("Der Backupjob <b>wurde</b> abgeschlossen.", "text/html; charset=utf-8"), Poco::Net::MailMessage::CONTENT_INLINE, Poco::Net::MailMessage::ENCODING_8BIT);
 
-        if(save_log == true && QFile::exists(logpath))
+        if(save_log == true && bakLogs.size() > 0)
         {
-            mail.addAttachment("rsync.log", new Poco::Net::FilePartSource(logpath.toStdString()));
+            for(int ia=0; ia<bakLogs.size(); ia++)
+            {
+                logpath = bakLogs.at(ia).rsync_path;
+                if(QFile::exists(logpath))
+                    mail.addAttachment(QString("rsync_%1.log").arg(ia).toStdString(), new Poco::Net::FilePartSource(logpath.toStdString()));
+            }
         }
 
         Poco::Net::SMTPClientSession *smtp = 0;
@@ -229,7 +253,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
 
             if(main_settings.getValue("smtp/auth").toBool() == true)
             {
-                smtp->login(Poco::Net::SMTPClientSession::AUTH_LOGIN, main_settings.getValue("smtp/username").toString().toStdString(), main_settings.getValue("smtp/password").toString().toStdString());
+                smtp->login(Poco::Net::SMTPClientSession::AUTH_LOGIN, main_settings.getValue("smtp/username").toString().toStdString(), QString(QByteArray().fromBase64(QByteArray().append(main_settings.getValue("smtp/password").toString()))).toStdString());
             }
             else
             {
@@ -243,11 +267,11 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         }
         catch(Poco::Net::SMTPException e)
         {
-            qDebug() << "tiBackupJob::startBackup() -> Mail message was NOT send. Error occured: " << QString::fromStdString(e.message());
+            qWarning() << "tiBackupJob::startBackup() -> Mail message was NOT send. Error occured: " << QString::fromStdString(e.message());
         }
         catch(Poco::Net::HostNotFoundException e)
         {
-            qDebug() << "tiBackupJob::startBackup() -> Mail message was NOT send. Hostname not found: " << QString::fromStdString(e.message());
+            qWarning() << "tiBackupJob::startBackup() -> Mail message was NOT send. Hostname not found: " << QString::fromStdString(e.message());
         }
 
         /*
