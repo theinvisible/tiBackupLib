@@ -38,6 +38,7 @@ public:
     QList<DeviceDisk> getAttachedDisks();
     bool isDeviceUSB(struct udev_device *device);
     bool isDeviceATA(struct udev_device *device);
+    bool isDeviceSCSI(struct udev_device *device);
     void print_device(struct udev_device *device, const char *source);
 
     QString mountPartition(DeviceDiskPartition *part);

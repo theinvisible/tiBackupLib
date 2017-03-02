@@ -74,7 +74,7 @@ QList<DeviceDisk> TiBackupLib::getAttachedDisks()
         const char* dev_path = udev_list_entry_get_name(dev_list_entry);
         dev = udev_device_new_from_syspath(udev, dev_path);
 
-        if( isDeviceUSB(dev) || isDeviceATA(dev) )
+        if( isDeviceUSB(dev) || isDeviceATA(dev) || isDeviceSCSI(dev) )
         {
             list_entry = udev_device_get_properties_list_entry(dev);
 
@@ -151,6 +151,30 @@ bool TiBackupLib::isDeviceATA(udev_device *device)
     {
         const char* szModelValue = udev_list_entry_get_value(model_entry);
         if( strcmp( szModelValue, "ata") == 0 )
+        {
+            //printf("Device is SD \n");
+            retVal = true;
+
+            print_device(device, "UDEV");
+        }
+    }
+    return retVal;
+}
+
+bool TiBackupLib::isDeviceSCSI(udev_device *device)
+{
+    bool retVal = false;
+    struct udev_list_entry *list_entry = 0;
+    struct udev_list_entry* model_entry = 0;
+
+    //print_device(device, "UDEV");
+
+    list_entry = udev_device_get_properties_list_entry(device);
+    model_entry = udev_list_entry_get_by_name(list_entry, "ID_BUS");
+    if( 0 != model_entry )
+    {
+        const char* szModelValue = udev_list_entry_get_value(model_entry);
+        if( strcmp( szModelValue, "scsi") == 0 )
         {
             //printf("Device is SD \n");
             retVal = true;
