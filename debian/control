@@ -6,7 +6,7 @@ Build-Depends: debhelper (>= 8.0.0)
 
 Package: tibackuplib
 Architecture: amd64
-Depends: ${shlibs:Depends}, rsync
+Depends: ${shlibs:Depends}, rsync, cryptsetup
 Conflicts:
 Replaces:
 Provides: tibackuplib

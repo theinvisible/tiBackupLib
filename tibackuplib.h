@@ -28,6 +28,7 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 
 #include <libudev.h>
 #include "obj/devicedisk.h"
+#include "obj/tibackupjob.h"
 
 class TIBACKUPLIBSHARED_EXPORT TiBackupLib
 {
@@ -41,14 +42,18 @@ public:
     bool isDeviceSCSI(struct udev_device *device);
     void print_device(struct udev_device *device, const char *source);
 
-    QString mountPartition(DeviceDiskPartition *part);
+    QString mountPartition(DeviceDiskPartition *part, tiBackupJob *job = 0);
     void umountPartition(DeviceDiskPartition *part);
 
     bool isMounted(const QString &dev_path);
+    bool isMounted(DeviceDiskPartition *dev);
     QString getMountDir(const QString &dev_path);
+    QString getMountDir(DeviceDiskPartition *dev);
+    QString getMountPathSrc(DeviceDiskPartition *dev);
 
     QString runCommandwithOutput(const QString &cmd, int timeout = 50000);
     int runCommandwithReturnCode(const QString &cmd, int timeout = 50000);
+    int runCommandwithReturnCodePipe(const QString &cmd, int timeout = 50000);
 
     static QString convertPath2Generic(const QString &path, const QString &mountdir);
     static QString convertGeneric2Path(const QString &path, const QString &mountdir);

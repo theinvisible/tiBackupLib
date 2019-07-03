@@ -81,15 +81,21 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         backupArg.append("--checksum ");
     }
 
-    if(lib.isMounted(part->name))
+    if(lib.isMounted(part))
     {
-        deviceMountDir = lib.getMountDir(part->name);
         qDebug() << "tiBackupJob::startBackup() -> Device is already mounted on" << deviceMountDir;
+        deviceMountDir = lib.getMountDir(part);
     }
     else
     {
-        deviceMountDir = lib.mountPartition(part);
         qDebug() << "tiBackupJob::startBackup() -> Device was not mounted, mounting on" << deviceMountDir;
+        deviceMountDir = lib.mountPartition(part, this);
+
+        if(!lib.isMounted(part))
+        {
+            qDebug() << "tiBackupJob::startBackup() -> Device could not be mounted, aborting";
+            return;
+        }
     }
 
     // Execute external script before backup if set

@@ -36,6 +36,12 @@ enum tiBackupJobInterval {
     tiBackupJobIntervalMONTHLY
 };
 
+enum tiBackupEncLUKS {
+    tiBackupEncLUKSNONE,
+    tiBackupEncLUKSFILE,
+    tiBackupEncLUKSGENUSBDEV
+};
+
 class tiBackupJobLog
 {
 public:
@@ -70,6 +76,9 @@ public:
     tiBackupJobInterval intervalType;
     QString intervalTime;
     int intervalDay;
+
+    tiBackupEncLUKS encLUKSType;
+    QString encLUKSFilePath;
 
     void startBackup();
     void startBackup(DeviceDiskPartition *part);

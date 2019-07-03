@@ -163,6 +163,11 @@ void tiConfBackupJobs::saveBackupJob(const tiBackupJob &job)
     f->setValue("day", job.intervalDay);
     f->endGroup();
 
+    f->beginGroup("encluks");
+    f->setValue("type", static_cast<int>(job.encLUKSType));
+    f->setValue("filepath", job.encLUKSFilePath);
+    f->endGroup();
+
     f->sync();
     delete f;
 }
@@ -220,6 +225,11 @@ void tiConfBackupJobs::readBackupJobs()
             job->intervalType = static_cast<tiBackupJobInterval>(f->value("type").toInt());
             job->intervalTime = f->value("time").toString();
             job->intervalDay = f->value("day").toInt();
+            f->endGroup();
+
+            f->beginGroup("encluks");
+            job->encLUKSType = static_cast<tiBackupEncLUKS>(f->value("type").toInt());
+            job->encLUKSFilePath = f->value("filepath").toString();
             f->endGroup();
 
             jobs.append(job);

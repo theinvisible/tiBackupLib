@@ -208,15 +208,46 @@ void TiBackupLib::print_device(struct udev_device *device, const char *source)
 
 }
 
-QString TiBackupLib::mountPartition(DeviceDiskPartition *part)
+QString TiBackupLib::mountPartition(DeviceDiskPartition *part, tiBackupJob *job)
 {
     QString mount_dir = QString(tibackup_config::mount_root).append("/").append(part->uuid);
     QDir m_dir(mount_dir);
     if(!m_dir.exists(mount_dir))
         m_dir.mkdir(mount_dir);
 
+    QString mnt_src = part->name;
+
+    if(part->type == "crypto_LUKS")
+    {
+        // We need further information for encryption
+        if(job == 0)
+            return "";
+
+        QString pass;
+        switch(job->encLUKSType)
+        {
+        case tiBackupEncLUKSNONE:
+            return "";
+        case tiBackupEncLUKSFILE:
+        {
+            QFile script(job->encLUKSFilePath);
+            if(!script.exists())
+                return "";
+            script.open(QIODevice::ReadOnly | QIODevice::Text);
+            pass = QString(script.readAll()).trimmed();
+            script.close();
+        }
+            break;
+        case tiBackupEncLUKSGENUSBDEV:
+            break;
+        }
+
+        runCommandwithReturnCodePipe(QString("echo '%1' | cryptsetup luksOpen %2 tibackup_enc_%3").arg(pass, part->name, part->uuid));
+        mnt_src = getMountPathSrc(part);
+    }
+
     //int ret = mount(part->name.toStdString().c_str(), mount_dir.toStdString().c_str(), part->type.toStdString().c_str(), 0, 0);
-    runCommandwithReturnCode(QString("mount %1 %2").arg(part->name, mount_dir));
+    runCommandwithReturnCode(QString("mount %1 %2").arg(mnt_src, mount_dir));
 
     return mount_dir;
 }
@@ -226,6 +257,11 @@ void TiBackupLib::umountPartition(DeviceDiskPartition *part)
     QString mount_dir = QString(tibackup_config::mount_root).append("/").append(part->uuid);
     //int ret = umount(mount_dir.toStdString().c_str());
     runCommandwithReturnCode(QString("umount %1").arg(mount_dir));
+
+    if(part->type == "crypto_LUKS")
+    {
+        runCommandwithReturnCode(QString("cryptsetup close tibackup_enc_%1").arg(part->uuid));
+    }
 }
 
 bool TiBackupLib::isMounted(const QString &dev_path)
@@ -250,6 +286,13 @@ bool TiBackupLib::isMounted(const QString &dev_path)
    return is_mounted;
 }
 
+bool TiBackupLib::isMounted(DeviceDiskPartition *dev)
+{
+    QString dev_path = getMountPathSrc(dev);
+
+    return isMounted(dev_path);
+}
+
 QString TiBackupLib::getMountDir(const QString &dev_path)
 {
     FILE * mtab = NULL;
@@ -272,6 +315,25 @@ QString TiBackupLib::getMountDir(const QString &dev_path)
     return mount_dir;
 }
 
+QString TiBackupLib::getMountDir(DeviceDiskPartition *dev)
+{
+    QString dev_path = getMountPathSrc(dev);
+
+    return getMountDir(dev_path);
+}
+
+QString TiBackupLib::getMountPathSrc(DeviceDiskPartition *dev)
+{
+    QString dev_path;
+    if(dev->type == "crypto_LUKS") {
+        dev_path = "/dev/mapper/tibackup_enc_" + dev->uuid;
+    } else {
+        dev_path = dev->name;
+    }
+
+    return dev_path;
+}
+
 QString TiBackupLib::runCommandwithOutput(const QString &cmd, int timeout)
 {
     QProcess proc;
@@ -288,6 +350,18 @@ int TiBackupLib::runCommandwithReturnCode(const QString &cmd, int timeout)
 
     QProcess proc;
     proc.start(cmd, QIODevice::ReadOnly);
+    proc.waitForStarted(timeout);
+    proc.waitForFinished(timeout);
+
+    return proc.exitCode();
+}
+
+int TiBackupLib::runCommandwithReturnCodePipe(const QString &cmd, int timeout)
+{
+    qDebug() << "TiBackupLib::runCommandwithReturnCode() -> run command::" << cmd;
+
+    QProcess proc;
+    proc.start("bash", QStringList() << "-c" << cmd, QIODevice::ReadOnly);
     proc.waitForStarted(timeout);
     proc.waitForFinished(timeout);
 
