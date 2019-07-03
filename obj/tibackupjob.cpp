@@ -165,6 +165,10 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
 
         qDebug() << QString("tiBackupJob::startBackup() -> We backup now %1 to %2").arg(src, dest);
 
+        QDir destdir(dest);
+        if(!destdir.exists())
+            destdir.mkpath(dest);
+
         log.ret_code = lib.runCommandwithReturnCode(QString("rsync -a %1 %2 %3").arg(backupFArgs, src, dest), -1);
         bakLogs << log;
     }
