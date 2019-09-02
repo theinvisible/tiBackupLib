@@ -61,3 +61,21 @@ build-debian-9-64:
 
   tags:
     - build-debian-9-64
+
+# Stage "debian"
+build-debian-10-64:  
+  stage: build
+  script:
+    - git submodule init && git submodule update
+    - cd qtinyaes && git submodule init && git submodule update && cd ..
+    - echo "y" | debuild -eDEB_BUILD_OPTIONS="parallel=4" -us -uc
+    - mkdir build
+    - mv ../tibackuplib_*.deb build/
+
+  # The files which are to be made available in GitLab
+  artifacts:
+    paths:
+      - build/*
+
+  tags:
+    - build-debian-10-64
