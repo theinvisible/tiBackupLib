@@ -195,18 +195,18 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         tmpScript.setPermissions(QFile::ReadOwner | QFile::ExeOwner);
         tmpScript.close();
 
-        qDebug() << QString("tiBackupJob::startBackup() -> Computed Script <%1> will be executed before backup:").arg(tmpfilename);
+        qDebug() << QString("tiBackupJob::startBackup() -> Computed Script <%1> will be executed after backup:").arg(tmpfilename);
         qDebug() << "------------------------------";
         qDebug() << tmpSource;
         qDebug() << "------------------------------";
 
         if(lib.runCommandwithReturnCode(tmpfilename, -1) != 0)
         {
-            bakMessages.append("Script before Backup was not executed properly.");
+            bakMessages.append("Script after Backup was not executed properly.");
         }
         else
         {
-            bakMessages.append("Script before Backup was executed properly.");
+            bakMessages.append("Script after Backup was executed properly.");
         }
         tmpScript.remove();
     }
