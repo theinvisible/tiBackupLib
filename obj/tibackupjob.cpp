@@ -169,7 +169,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         if(!destdir.exists())
             destdir.mkpath(dest);
 
-        log.ret_code = lib.runCommandwithReturnCode(QString("rsync -a %1 '%2' '%3'").arg(backupFArgs, src, dest), -1);
+        log.ret_code = lib.runCommandwithReturnCode(QString("rsync -a %1 \"%2\" \"%3\"").arg(backupFArgs, src, dest), -1);
         bakLogs << log;
     }
 
