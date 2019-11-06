@@ -254,8 +254,9 @@ QString TiBackupLib::mountPartition(DeviceDiskPartition *part, tiBackupJob *job)
 
 void TiBackupLib::umountPartition(DeviceDiskPartition *part)
 {
-    QString mount_dir = QString(tibackup_config::mount_root).append("/").append(part->uuid);
+    //QString mount_dir = QString(tibackup_config::mount_root).append("/").append(part->uuid);
     //int ret = umount(mount_dir.toStdString().c_str());
+    QString mount_dir = getMountDir(part);
     runCommandwithReturnCode(QString("umount %1").arg(mount_dir));
 
     if(part->type == "crypto_LUKS")
