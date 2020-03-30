@@ -5,6 +5,23 @@ before_script:
 # Defines stages which are to be executed
 stages:  
   - build
+  
+# Stage "ubuntu"
+build-ubuntu-1804-64:  
+  stage: build
+  script:
+    - echo "y" | debuild -- clean
+    - echo "y" | debuild -eDEB_BUILD_OPTIONS="parallel=4" -us -uc
+    - mkdir build
+    - mv ../tibackuplib_*.deb build/
+
+  # The files which are to be made available in GitLab
+  artifacts:
+    paths:
+      - build/*
+
+  tags:
+    - build-ubuntu-1804-64
 
 # Stage "ubuntu"
 build-ubuntu-1604-64:  
