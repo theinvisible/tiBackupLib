@@ -43,24 +43,6 @@ build-ubuntu-1604-64:
     - build-ubuntu-1604-64
 
 # Stage "debian"
-build-debian-8-64:  
-  stage: build
-  script:
-    - debuild clean
-    - echo "y" | debuild -eDEB_BUILD_OPTIONS="parallel=4" -us -uc
-    - mkdir build
-    - mv ../tibackuplib_*.deb build/
-    - upload_build build/tibackuplib_*.deb || true
-
-  # The files which are to be made available in GitLab
-  artifacts:
-    paths:
-      - build/*
-
-  tags:
-    - build-debian-8-64
-
-# Stage "debian"
 build-debian-9-64:  
   stage: build
   script:
