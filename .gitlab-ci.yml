@@ -68,10 +68,16 @@ build-debian-9-64:
 build-debian-10-64:  
   stage: build
   script:
-    - echo "y" | debuild -eDEB_BUILD_OPTIONS="parallel=4" -us -uc
     - mkdir build
+    - cd tibackuplib-dev
+    - echo "y" | debuild -- clean
+    - echo "y" | debuild -eDEB_BUILD_OPTIONS="parallel=4" -us -uc
+    - cd ..
+    - mv tibackuplib-dev_*.deb build/
+    - echo "y" | debuild -- clean
+    - echo "y" | debuild -eDEB_BUILD_OPTIONS="parallel=4" -us -uc
     - mv ../tibackuplib_*.deb build/
-    - upload_build build/tibackuplib_*.deb || true
+    - upload_build build/tibackuplib*.deb || true
 
   # The files which are to be made available in GitLab
   artifacts:
