@@ -1,0 +1,11 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_install:
+	mkdir -p debian/tibackuplib-dev/usr/include/tibackuplib/obj
+	mkdir -p debian/tibackuplib-dev/usr/include/tibackuplib/workers
+	cp -a ../*.h debian/tibackuplib-dev/usr/include/tibackuplib/.
+	cp -a ../obj/*.h debian/tibackuplib-dev/usr/include/tibackuplib/obj/.
+	cp -a ../workers/*.h debian/tibackuplib-dev/usr/include/tibackuplib/workers/.
