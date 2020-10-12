@@ -19,7 +19,7 @@ build-ubuntu-2004-64:
     - echo "y" | debuild -- clean
     - echo "y" | debuild -eDEB_BUILD_OPTIONS="parallel=4" -us -uc
     - mv ../tibackuplib_*.deb build/
-    - upload_build build/tibackuplib*.deb || true
+    - upload_build_dev build/tibackuplib*.deb || true
 
   # The files which are to be made available in GitLab
   artifacts:
@@ -42,7 +42,7 @@ build-ubuntu-1804-64:
     - echo "y" | debuild -- clean
     - echo "y" | debuild -eDEB_BUILD_OPTIONS="parallel=4" -us -uc
     - mv ../tibackuplib_*.deb build/
-    - upload_build build/tibackuplib*.deb || true
+    - upload_build_dev build/tibackuplib*.deb || true
 
   # The files which are to be made available in GitLab
   artifacts:
@@ -60,7 +60,7 @@ build-ubuntu-1604-64:
     - echo "y" | debuild -eDEB_BUILD_OPTIONS="parallel=4" -us -uc
     - mkdir build
     - mv ../tibackuplib_*.deb build/
-    - upload_build build/tibackuplib_*.deb || true
+    - upload_build_dev build/tibackuplib_*.deb || true
 
   # The files which are to be made available in GitLab
   artifacts:
@@ -77,7 +77,7 @@ build-debian-9-64:
     - echo "y" | debuild -eDEB_BUILD_OPTIONS="parallel=4" -us -uc
     - mkdir build
     - mv ../tibackuplib_*.deb build/
-    - upload_build build/tibackuplib_*.deb || true
+    - upload_build_dev build/tibackuplib_*.deb || true
 
   # The files which are to be made available in GitLab
   artifacts:
@@ -100,7 +100,7 @@ build-debian-10-64:
     - echo "y" | debuild -- clean
     - echo "y" | debuild -eDEB_BUILD_OPTIONS="parallel=4" -us -uc
     - mv ../tibackuplib_*.deb build/
-    - upload_build build/tibackuplib*.deb || true
+    - upload_build_dev build/tibackuplib*.deb || true
 
   # The files which are to be made available in GitLab
   artifacts:
