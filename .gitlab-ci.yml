@@ -122,3 +122,111 @@ build-debian-10-64-dev:
 
   tags:
     - build-debian-10-64
+
+# Stage "ubuntu"
+build-ubuntu-2004-64:  
+  <<: *build_template_def
+  stage: build
+  script:
+    - mkdir build
+    - cd tibackuplib-dev
+    - echo "y" | debuild -- clean
+    - echo "y" | debuild -eDEB_BUILD_OPTIONS="parallel=4" -us -uc
+    - cd ..
+    - mv tibackuplib-dev_*.deb build/
+    - echo "y" | debuild -- clean
+    - echo "y" | debuild -eDEB_BUILD_OPTIONS="parallel=4" -us -uc
+    - mv ../tibackuplib_*.deb build/
+    - upload_build_release build/tibackuplib*.deb || true
+
+  # The files which are to be made available in GitLab
+  artifacts:
+    paths:
+      - build/*
+
+  tags:
+    - build-ubuntu-2004-64
+
+  only:
+    - tags
+
+# Stage "ubuntu"
+build-ubuntu-1804-64:  
+  <<: *build_template_def
+  stage: build
+  script:
+    - mkdir build
+    - cd tibackuplib-dev
+    - echo "y" | debuild -- clean
+    - echo "y" | debuild -eDEB_BUILD_OPTIONS="parallel=4" -us -uc
+    - cd ..
+    - mv tibackuplib-dev_*.deb build/
+    - echo "y" | debuild -- clean
+    - echo "y" | debuild -eDEB_BUILD_OPTIONS="parallel=4" -us -uc
+    - mv ../tibackuplib_*.deb build/
+    - upload_build_release build/tibackuplib*.deb || true
+
+  # The files which are to be made available in GitLab
+  artifacts:
+    paths:
+      - build/*
+
+  tags:
+    - build-ubuntu-1804-64
+
+  only:
+    - tags
+
+# Stage "debian"
+build-debian-9-64:  
+  <<: *build_template_def
+  stage: build
+  script:
+    - mkdir build
+    - cd tibackuplib-dev
+    - echo "y" | debuild -- clean
+    - echo "y" | debuild -eDEB_BUILD_OPTIONS="parallel=4" -us -uc
+    - cd ..
+    - mv tibackuplib-dev_*.deb build/
+    - echo "y" | debuild -- clean
+    - echo "y" | debuild -eDEB_BUILD_OPTIONS="parallel=4" -us -uc
+    - mv ../tibackuplib_*.deb build/
+    - upload_build_release build/tibackuplib*.deb || true
+
+  # The files which are to be made available in GitLab
+  artifacts:
+    paths:
+      - build/*
+
+  tags:
+    - build-debian-9-64
+
+  only:
+    - tags
+
+# Stage "debian"
+build-debian-10-64:  
+  <<: *build_template_def
+  stage: build
+  script:
+    - mkdir build
+    - cd tibackuplib-dev
+    - echo "y" | debuild -- clean
+    - echo "y" | debuild -eDEB_BUILD_OPTIONS="parallel=4" -us -uc
+    - cd ..
+    - mv tibackuplib-dev_*.deb build/
+    - echo "y" | debuild -- clean
+    - echo "y" | debuild -eDEB_BUILD_OPTIONS="parallel=4" -us -uc
+    - mv ../tibackuplib_*.deb build/
+    - upload_build_release build/tibackuplib*.deb || true
+
+  # The files which are to be made available in GitLab
+  artifacts:
+    paths:
+      - build/*
+
+  tags:
+    - build-debian-10-64
+
+  only:
+    - tags
