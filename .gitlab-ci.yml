@@ -51,6 +51,9 @@ build-ubuntu-2004-64-dev:
   tags:
     - build-ubuntu-2004-64
 
+  only:
+    - master
+
 # Stage "ubuntu"
 build-ubuntu-1804-64-dev:  
   <<: *build_template_def
@@ -74,6 +77,9 @@ build-ubuntu-1804-64-dev:
 
   tags:
     - build-ubuntu-1804-64
+
+  only:
+    - master
 
 # Stage "debian"
 build-debian-9-64-dev:  
@@ -99,6 +105,9 @@ build-debian-9-64-dev:
   tags:
     - build-debian-9-64
 
+  only:
+    - master
+
 # Stage "debian"
 build-debian-10-64-dev:  
   <<: *build_template_def
@@ -122,6 +131,9 @@ build-debian-10-64-dev:
 
   tags:
     - build-debian-10-64
+
+  only:
+    - master
 
 # Stage "ubuntu"
 build-ubuntu-2004-64:  
