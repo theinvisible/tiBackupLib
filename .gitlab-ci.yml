@@ -137,7 +137,6 @@ build-debian-10-64-dev:
 
 # Stage "ubuntu"
 build-ubuntu-2004-64:  
-  <<: *build_template_def
   stage: build
   script:
     - mkdir build
@@ -164,7 +163,6 @@ build-ubuntu-2004-64:
 
 # Stage "ubuntu"
 build-ubuntu-1804-64:  
-  <<: *build_template_def
   stage: build
   script:
     - mkdir build
@@ -191,7 +189,6 @@ build-ubuntu-1804-64:
 
 # Stage "debian"
 build-debian-9-64:  
-  <<: *build_template_def
   stage: build
   script:
     - mkdir build
@@ -218,7 +215,6 @@ build-debian-9-64:
 
 # Stage "debian"
 build-debian-10-64:  
-  <<: *build_template_def
   stage: build
   script:
     - mkdir build
