@@ -412,3 +412,17 @@ DeviceDiskPartition TiBackupLib::getPartitionByUUID(const QString &uuid)
 
     return retPart;
 }
+
+tiBackupInitSystem TiBackupLib::getSystemInitModel()
+{
+    // Check for Systemd, see: https://www.freedesktop.org/software/systemd/man/sd_booted.html
+    QDir dir("/run/systemd/system/");
+    if(dir.exists())
+    {
+        return tiBackupInitSystem::Systemd;
+    }
+    else
+    {
+        return tiBackupInitSystem::Other;
+    }
+}

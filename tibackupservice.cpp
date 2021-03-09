@@ -1,5 +1,6 @@
 #include "tibackupservice.h"
 
+#include "config.h"
 #include "tibackuplib.h"
 
 #include <QFile>
@@ -16,10 +17,19 @@ tiBackupServiceStatus tiBackupService::start()
 
     TiBackupLib lib;
     QString initd = main_settings->getValue("paths/initd").toString();
-    QString cmd = QString("%1 start").arg(initd);
+    QString cmd;
 
-    if(!QFile::exists(initd))
-        return tiBackupServiceStatusNotFound;
+    switch(TiBackupLib::getSystemInitModel())
+    {
+    case tiBackupInitSystem::Systemd:
+        cmd = QString("systemctl start %1").arg(tibackup_config::systemd_name);
+        break;
+    case tiBackupInitSystem::Other:
+        cmd = QString("%1 start").arg(initd);
+        if(!QFile::exists(initd))
+            return tiBackupServiceStatusNotFound;
+        break;
+    }
 
     lib.runCommandwithReturnCode(cmd);
 
@@ -33,10 +43,19 @@ tiBackupServiceStatus tiBackupService::stop()
 
     TiBackupLib lib;
     QString initd = main_settings->getValue("paths/initd").toString();
-    QString cmd = QString("%1 stop").arg(initd);
+    QString cmd;
 
-    if(!QFile::exists(initd))
-        return tiBackupServiceStatusNotFound;
+    switch(TiBackupLib::getSystemInitModel())
+    {
+    case tiBackupInitSystem::Systemd:
+        cmd = QString("systemctl stop %1").arg(tibackup_config::systemd_name);
+        break;
+    case tiBackupInitSystem::Other:
+        cmd = QString("%1 stop").arg(initd);
+        if(!QFile::exists(initd))
+            return tiBackupServiceStatusNotFound;
+        break;
+    }
 
     lib.runCommandwithReturnCode(cmd);
 
@@ -48,16 +67,25 @@ tiBackupServiceStatus tiBackupService::status()
 {
     TiBackupLib lib;
     QString initd = main_settings->getValue("paths/initd").toString();
-    QString cmd = QString("%1 status").arg(initd);
+    QString cmd;
 
-    if(!QFile::exists(initd))
-        return tiBackupServiceStatusNotFound;
+    switch(TiBackupLib::getSystemInitModel())
+    {
+    case tiBackupInitSystem::Systemd:
+        cmd = QString("systemctl status %1").arg(tibackup_config::systemd_name);
+        break;
+    case tiBackupInitSystem::Other:
+        cmd = QString("%1 stop").arg(initd);
+
+        if(!QFile::exists(initd))
+            return tiBackupServiceStatusNotFound;
+        break;
+    }
 
     if(lib.runCommandwithReturnCode(cmd) == 0)
         return tiBackupServiceStatusStarted;
     else
         return tiBackupServiceStatusStopped;
-
 }
 
 bool tiBackupService::install(const QString &path)

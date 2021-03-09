@@ -46,3 +46,6 @@ QMAKE_CXXFLAGS_RELEASE += -pipe -O2
 
 RESOURCES += \
     resdata.qrc
+
+DISTFILES += \
+    debian/changelog

@@ -30,6 +30,11 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 #include "obj/devicedisk.h"
 #include "obj/tibackupjob.h"
 
+enum tiBackupInitSystem {
+    Systemd,
+    Other
+};
+
 class TIBACKUPLIBSHARED_EXPORT TiBackupLib
 {
 
@@ -59,6 +64,7 @@ public:
     static QString convertGeneric2Path(const QString &path, const QString &mountdir);
 
     static DeviceDiskPartition getPartitionByUUID(const QString &uuid);
+    static tiBackupInitSystem getSystemInitModel();
 };
 
 #endif // TIBACKUPLIB_H

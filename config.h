@@ -31,6 +31,7 @@ namespace tibackup_config
     static const char __attribute__ ((unused)) *mount_root = "/mnt";
     static const char __attribute__ ((unused)) *initd_default = "/etc/init.d/tibackup";
     static const char __attribute__ ((unused)) *api_sock_name = "tibackup";
+    static const char __attribute__ ((unused)) *systemd_name = "tibackupd";
 
     static const char __attribute__ ((unused)) *var_partbackup_dir = "%MNTBACKUPDIR%";
 }
