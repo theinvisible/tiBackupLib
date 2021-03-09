@@ -41,8 +41,9 @@ void DeviceDisk::readPartitions()
         return;
 
     blkid_probe pr = blkid_new_probe_from_filename(devname.toStdString().c_str());
+    qDebug() << "DeviceDisk::readPartitions(): probe disk for partitions :: " << devname;
     if (!pr) {
-       return;
+        return;
     }
 
     // Get number of partitions
@@ -50,10 +51,16 @@ void DeviceDisk::readPartitions()
     int nparts, i;
 
     ls = blkid_probe_get_partitions(pr);
+    if (!ls) {
+        qDebug() << "DeviceDisk::readPartitions(): blkid_probe_get_partitions() error occured, skipping scan :: " << devname;
+        blkid_free_probe(pr);
+        return;
+    }
     nparts = blkid_partlist_numof_partitions(ls);
 
-    if (nparts <= 0){
-       return;
+    if (nparts <= 0) {
+        blkid_free_probe(pr);
+        return;
     }
 
     // Get UUID, label and type
