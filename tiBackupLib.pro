@@ -48,4 +48,5 @@ RESOURCES += \
     resdata.qrc
 
 DISTFILES += \
-    debian/changelog
+    debian/changelog \
+    tibackuplib-dev/debian/changelog
