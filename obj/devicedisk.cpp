@@ -120,3 +120,23 @@ DeviceDiskPartition DeviceDisk::getPartitionByUUID(const QString &uuid)
     DeviceDiskPartition part_empty;
     return part_empty;
 }
+
+QDataStream &operator<<(QDataStream &ds, const DeviceDiskPartition &obj)
+{
+    ds << obj.name;
+    ds << obj.uuid;
+    ds << obj.label;
+    ds << obj.type;
+
+    return ds;
+}
+
+QDataStream &operator>>(QDataStream &ds, DeviceDiskPartition &obj)
+{
+    ds >> obj.name;
+    ds >> obj.uuid;
+    ds >> obj.label;
+    ds >> obj.type;
+
+    return ds;
+}

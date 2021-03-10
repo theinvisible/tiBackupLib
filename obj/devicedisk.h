@@ -57,4 +57,7 @@ public:
     DeviceDiskPartition getPartitionByUUID(const QString &uuid);
 };
 
+QDataStream &operator<<(QDataStream &ds, const DeviceDiskPartition &obj);
+QDataStream &operator>>(QDataStream &ds, DeviceDiskPartition &obj) ;
+
 #endif // DEVICEDISK_H

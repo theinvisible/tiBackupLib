@@ -10,11 +10,19 @@ class tiBackupApi : public QObject
 public:
     explicit tiBackupApi(QObject *parent = 0);
 
-    static const QString API_CMD_START;
-    static const QString API_CMD_STOP;
+    enum API_CMD {
+        API_CMD_START = 1,
+        API_CMD_STOP,
+        API_CMD_DISK_GET_PARTITIONS,
+        API_CMD_DISK_GET_PARTITION_BY_UUID
+    };
 
-    static const QString API_VAR_CMD;
-    static const QString API_VAR_BACKUPJOB;
+    enum API_VAR {
+        API_VAR_CMD = 1,
+        API_VAR_BACKUPJOB,
+        API_VAR_DEVNAME,
+        API_VAR_PART_UUID
+    };
 
 signals:
 
