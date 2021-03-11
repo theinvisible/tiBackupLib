@@ -54,7 +54,7 @@ QList<DeviceDiskPartition> ipcClient::getPartitionsForDevName(const QString &dev
     {
         QByteArray block;
         QDataStream out(&block, QIODevice::WriteOnly);
-        out.setVersion(QDataStream::Qt_5_9);
+        out.setVersion(tibackup_config::ipc_version);
         QHash<tiBackupApi::API_VAR, QString> apiData;
         apiData[tiBackupApi::API_VAR::API_VAR_CMD] = tiBackupApi::API_CMD::API_CMD_DISK_GET_PARTITIONS;
         apiData[tiBackupApi::API_VAR::API_VAR_DEVNAME] = devname;
@@ -66,7 +66,7 @@ QList<DeviceDiskPartition> ipcClient::getPartitionsForDevName(const QString &dev
         apiClient->waitForReadyRead(5000);
 
         QDataStream in(apiClient);
-        in.setVersion(QDataStream::Qt_5_9);
+        in.setVersion(tibackup_config::ipc_version);
         in >> partitions;
     }
     else
