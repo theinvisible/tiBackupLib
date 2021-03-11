@@ -74,7 +74,8 @@ QList<DeviceDisk> TiBackupLib::getAttachedDisks()
         const char* dev_path = udev_list_entry_get_name(dev_list_entry);
         dev = udev_device_new_from_syspath(udev, dev_path);
 
-        if( isDeviceUSB(dev) || isDeviceATA(dev) || isDeviceSCSI(dev) )
+        //if( isDeviceUSB(dev) || isDeviceATA(dev) || isDeviceSCSI(dev) || isDeviceNVME(dev) )
+        if( isDeviceDisk(dev) )
         {
             list_entry = udev_device_get_properties_list_entry(dev);
 
@@ -175,6 +176,57 @@ bool TiBackupLib::isDeviceSCSI(udev_device *device)
     {
         const char* szModelValue = udev_list_entry_get_value(model_entry);
         if( strcmp( szModelValue, "scsi") == 0 )
+        {
+            //printf("Device is SD \n");
+            retVal = true;
+
+            print_device(device, "UDEV");
+        }
+    }
+    return retVal;
+}
+
+bool TiBackupLib::isDeviceNVME(udev_device *device)
+{
+    bool retVal = false;
+    struct udev_list_entry *list_entry = 0;
+    struct udev_list_entry* model_entry = 0;
+
+    //print_device(device, "UDEV");
+
+    list_entry = udev_device_get_properties_list_entry(device);
+    model_entry = udev_list_entry_get_by_name(list_entry, "ID_BUS");
+    if( 0 != model_entry )
+    {
+        const char* szModelValue = udev_list_entry_get_value(model_entry);
+        if( strcmp( szModelValue, "nvme") == 0 )
+        {
+            //printf("Device is SD \n");
+            retVal = true;
+
+            print_device(device, "UDEV");
+        }
+    }
+    return retVal;
+}
+
+bool TiBackupLib::isDeviceDisk(udev_device *device)
+{
+    bool retVal = false;
+    struct udev_list_entry *list_entry = 0;
+    struct udev_list_entry* model_entry = 0;
+    struct udev_list_entry* model_part_table_type = 0;
+
+    //print_device(device, "UDEV");
+
+    list_entry = udev_device_get_properties_list_entry(device);
+    model_entry = udev_list_entry_get_by_name(list_entry, "DEVTYPE");
+    model_part_table_type = udev_list_entry_get_by_name(list_entry, "ID_PART_TABLE_TYPE");
+    if( 0 != model_entry && 0 != model_part_table_type )
+    {
+        const char* szModelValue = udev_list_entry_get_value(model_entry);
+        const char* szModelValue2 = udev_list_entry_get_value(model_part_table_type);
+        if( strcmp( szModelValue, "disk") == 0 && (strcmp( szModelValue2, "gpt") == 0 || strcmp( szModelValue2, "dos") == 0) )
         {
             //printf("Device is SD \n");
             retVal = true;

@@ -43,6 +43,7 @@ void DeviceDisk::readPartitions()
     blkid_probe pr = blkid_new_probe_from_filename(devname.toStdString().c_str());
     qDebug() << "DeviceDisk::readPartitions(): probe disk for partitions :: " << devname;
     if (!pr) {
+        qDebug() << "DeviceDisk::readPartitions(): blkid_new_probe_from_filename() error occured, skipping scan :: " << devname;
         return;
     }
 
@@ -69,13 +70,19 @@ void DeviceDisk::readPartitions()
     const char *type = 0;
 
     for (i = 0; i < nparts; i++) {
-       char dev_name[20];
+       char dev_name[50];
 
        sprintf(dev_name, "%s%d", devname.toStdString().c_str(), (i+1));
 
        pr = blkid_new_probe_from_filename(dev_name);
        if(pr == NULL)
-           continue;
+       {
+           // Quick fix for NVME drives
+            sprintf(dev_name, "%sp%d", devname.toStdString().c_str(), (i+1));
+            pr = blkid_new_probe_from_filename(dev_name);
+            if(pr == NULL)
+                continue;
+       }
 
        blkid_do_probe(pr);
 
