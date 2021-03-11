@@ -4,6 +4,7 @@
 #
 #-------------------------------------------------
 
+QT       += core network
 QT       -= gui
 
 TARGET = tiBackupLib
@@ -12,6 +13,7 @@ TEMPLATE = lib
 DEFINES += TIBACKUPLIB_LIBRARY
 
 SOURCES += tibackuplib.cpp \
+    ipcclient.cpp \
     obj/devicedisk.cpp \
     tibackupdiskobserver.cpp \
     ticonf.cpp \
@@ -22,6 +24,7 @@ SOURCES += tibackuplib.cpp \
     obj/exitcodes.cpp
 
 HEADERS += tibackuplib.h\
+    ipcclient.h \
         tibackuplib_global.h \
     obj/devicedisk.h \
     tibackupdiskobserver.h \

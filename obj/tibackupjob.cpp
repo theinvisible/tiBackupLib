@@ -88,8 +88,8 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
     }
     else
     {
-        qDebug() << "tiBackupJob::startBackup() -> Device was not mounted, mounting on" << deviceMountDir;
         deviceMountDir = lib.mountPartition(part, this);
+        qDebug() << "tiBackupJob::startBackup() -> Device was not mounted, mounting on" << deviceMountDir;
 
         if(!lib.isMounted(part))
         {
