@@ -15,6 +15,7 @@ DEFINES += TIBACKUPLIB_LIBRARY
 SOURCES += tibackuplib.cpp \
     ipcclient.cpp \
     obj/devicedisk.cpp \
+    pbsclient.cpp \
     tibackupdiskobserver.cpp \
     ticonf.cpp \
     obj/tibackupjob.cpp \
@@ -25,6 +26,8 @@ SOURCES += tibackuplib.cpp \
 
 HEADERS += tibackuplib.h\
     ipcclient.h \
+    obj/HttpStatusCodes.h \
+    pbsclient.h \
         tibackuplib_global.h \
     obj/devicedisk.h \
     tibackupdiskobserver.h \
