@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QNetworkAccessManager>
+#include <QJsonDocument>
 
 #include "obj/HttpStatusCodes.h"
 
@@ -35,6 +36,8 @@ private:
        }
     };
 
+    QNetworkRequest getNRAuth(const QString &url);
+
 public:
     static pbsClient* instance()
     {
@@ -43,8 +46,23 @@ public:
           _instance = new pbsClient();
        return _instance;
     }
+    struct HttpResponse {
+        HttpStatus::Code status;
+        QJsonDocument data;
+    };
+    struct HttpResponseRaw {
+        HttpStatus::Code status;
+        QByteArray data;
+    };
 
     HttpStatus::Code auth(const QString &host, const QString &username, const QString &password);
+    QString genPBSAPIPath(const QString &path);
+    QString genPBSAPIPath(const QString &path, const QUrlQuery &query);
+
+    HttpResponse getDatastores();
+    HttpResponse getDatastoreSnapshots(const QString &datastore, const QString &backupid = "");
+    HttpResponse getDatastoreGroups(const QString &datastore);
+    HttpResponseRaw getBackupFile(const QString &datastore, const QString &backupid, int backuptime, const QString &backuptype, const QString &filename);
 
 signals:
 
