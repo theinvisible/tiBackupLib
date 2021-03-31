@@ -53,16 +53,19 @@ tiConfMain::~tiConfMain()
 void tiConfMain::initMainConf()
 {
     QFile conf_main(tibackup_config::file_main);
+    QFileInfo finfo(tibackup_config::file_main);
+    QDir conf_main_dir = finfo.absoluteDir();
+    conf_main_dir.mkpath(conf_main_dir.absolutePath());
+
     if(!conf_main.exists())
     {
-        QFileInfo finfo(tibackup_config::file_main);
-        QDir conf_main_dir = finfo.absoluteDir();
-        conf_main_dir.mkpath(conf_main_dir.absolutePath());
-
         QString backupjobs_dir = QString("%1/jobs").arg(conf_main_dir.absolutePath());
+        QString pbservers_dir = QString("%1/pbservers").arg(conf_main_dir.absolutePath());
         QString logs_dir = QString("%1/logs").arg(conf_main_dir.absolutePath());
         QString scripts_dir = QString("%1/scripts").arg(conf_main_dir.absolutePath());
 
+        QDir pbservers_dir_path(pbservers_dir);
+        pbservers_dir_path.mkpath(pbservers_dir);
         QDir backupjobsdir_path(backupjobs_dir);
         backupjobsdir_path.mkpath(backupjobs_dir);
         QDir logsdir_path(logs_dir);
@@ -73,10 +76,24 @@ void tiConfMain::initMainConf()
         QSettings conf(tibackup_config::file_main, QSettings::IniFormat);
         conf.setValue("main/debug", true);
         conf.setValue("paths/backupjobs", backupjobs_dir);
+        conf.setValue("paths/pbservers", pbservers_dir);
         conf.setValue("paths/logs", logs_dir);
         conf.setValue("paths/scripts", scripts_dir);
         conf.setValue("paths/initd", tibackup_config::initd_default);
         conf.sync();
+    }
+    else
+    {
+        QSettings conf(tibackup_config::file_main, QSettings::IniFormat);
+        if(!conf.contains("paths/pbservers"))
+        {
+            QString pbservers_dir = QString("%1/pbservers").arg(conf_main_dir.absolutePath());
+            QDir pbservers_dir_path(pbservers_dir);
+            pbservers_dir_path.mkpath(pbservers_dir);
+
+            conf.setValue("paths/pbservers", pbservers_dir);
+            conf.sync();
+        }
     }
 }
 
@@ -283,4 +300,114 @@ bool tiConfBackupJobs::renameJob(const QString &oldname, const QString &newname)
 {
     return QFile::rename(QString("%1/%2.conf").arg(main_settings->getValue("paths/backupjobs").toString(), oldname),
                          QString("%1/%2.conf").arg(main_settings->getValue("paths/backupjobs").toString(), newname));
+}
+
+tiConfPBServers::tiConfPBServers()
+{
+    main_settings = new tiConfMain();
+    QList<PBServer*> items;
+}
+
+tiConfPBServers::~tiConfPBServers()
+{
+    delete main_settings;
+}
+
+void tiConfPBServers::saveItem(const PBServer &item)
+{
+    QString filename = QString(main_settings->getValue("paths/pbservers").toString()).append("/%1.conf").arg(item.uuid);
+    QDir itemdir(main_settings->getValue("paths/pbservers").toString());
+    if(!itemdir.exists())
+        itemdir.mkpath(main_settings->getValue("paths/pbservers").toString());
+
+    if(QFile::exists(filename))
+        QFile::remove(filename);
+
+    QSettings *f = new QSettings(filename, QSettings::IniFormat);
+
+    f->beginGroup("pbserver");
+    f->setValue("uuid", item.uuid);
+    f->setValue("name", item.name);
+    f->setValue("host", item.host);
+    f->setValue("port", item.port);
+    f->setValue("username", item.username);
+    f->setValue("password", item.password);
+    f->endGroup();
+
+    f->sync();
+    delete f;
+}
+
+void tiConfPBServers::readItems()
+{
+    items.clear();
+
+    QString dir = main_settings->getValue("paths/pbservers").toString();
+    QDirIterator it_dir(dir);
+    QString filepath;
+    while (it_dir.hasNext())
+    {
+        filepath = it_dir.next();
+        if(filepath.endsWith(".conf"))
+        {
+            qDebug() << "tiConfPBServers::readItems() -> item found:" << filepath;
+
+            QSettings *f = new QSettings(filepath, QSettings::IniFormat);
+            PBServer *item = new PBServer;
+
+            f->beginGroup("pbserver");
+            item->uuid = f->value("uuid").toString();
+            item->name = f->value("name").toString();
+            item->host = f->value("host").toString();
+            item->port = f->value("port").toUInt();
+            item->username = f->value("username").toString();
+            item->password = f->value("password").toString();
+            f->endGroup();
+
+            items.append(item);
+            delete f;
+        }
+    }
+}
+
+QList<PBServer *> tiConfPBServers::getItems()
+{
+    return items;
+}
+
+PBServer *tiConfPBServers::getItemByName(const QString &name)
+{
+    readItems();
+    PBServer *item = 0;
+
+    for(int i=0; i < items.count(); i++)
+    {
+        item = items.at(i);
+        if(item->name == name)
+            return item;
+    }
+
+    return item;
+}
+
+bool tiConfPBServers::removeItemByName(const QString &name)
+{
+    return QFile::remove(QString("%1/%2.conf").arg(main_settings->getValue("paths/pbservers").toString(), name));
+}
+
+bool tiConfPBServers::renameItem(const QString &oldname, const QString &newname)
+{
+    return QFile::rename(QString("%1/%2.conf").arg(main_settings->getValue("paths/pbservers").toString(), oldname),
+                         QString("%1/%2.conf").arg(main_settings->getValue("paths/pbservers").toString(), newname));
+}
+
+bool tiConfPBServers::copyItem(const QString &origname, const QString &cpname)
+{
+    PBServer *item = getItemByName(origname);
+    PBServer newitem = *item;
+    newitem.genNewUuid();
+    newitem.name = cpname;
+    saveItem(newitem);
+
+    return true;
 }
