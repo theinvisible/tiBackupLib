@@ -84,8 +84,10 @@ public:
 
     QList<PBServer*> getItems();
     PBServer* getItemByName(const QString &name);
+    PBServer* getItemByUuid(const QString &uuid);
 
     bool removeItemByName(const QString &name);
+    bool removeItemByUuid(const QString &uuid);
 
     bool renameItem(const QString &oldname, const QString &newname);
     bool copyItem(const QString &origname, const QString &cpname);

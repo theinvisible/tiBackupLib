@@ -14,6 +14,7 @@ private:
     QString host;
     QString username;
     QString password;
+    int port;
 
     QString ticket;
     QString CSRF;
@@ -56,6 +57,7 @@ public:
     };
 
     HttpStatus::Code auth(const QString &host, const QString &username, const QString &password);
+    HttpStatus::Code auth(const QString &host, int port, const QString &username, const QString &password);
     QString genPBSAPIPath(const QString &path);
     QString genPBSAPIPath(const QString &path, const QUrlQuery &query);
 

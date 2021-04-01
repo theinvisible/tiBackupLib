@@ -29,6 +29,8 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 
 #include "config.h"
 
+tiConfPBServers* tiConfPBServers::_instance = 0;
+
 tiConfMain::tiConfMain()
 {
     settings = 0;
@@ -390,9 +392,29 @@ PBServer *tiConfPBServers::getItemByName(const QString &name)
     return item;
 }
 
+PBServer *tiConfPBServers::getItemByUuid(const QString &uuid)
+{
+    readItems();
+    PBServer *item = 0;
+
+    for(int i=0; i < items.count(); i++)
+    {
+        item = items.at(i);
+        if(item->uuid == uuid)
+            return item;
+    }
+
+    return item;
+}
+
 bool tiConfPBServers::removeItemByName(const QString &name)
 {
     return QFile::remove(QString("%1/%2.conf").arg(main_settings->getValue("paths/pbservers").toString(), name));
+}
+
+bool tiConfPBServers::removeItemByUuid(const QString &uuid)
+{
+    return QFile::remove(QString("%1/%2.conf").arg(main_settings->getValue("paths/pbservers").toString(), uuid));
 }
 
 bool tiConfPBServers::renameItem(const QString &oldname, const QString &newname)

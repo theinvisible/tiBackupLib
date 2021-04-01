@@ -33,9 +33,15 @@ QNetworkRequest pbsClient::getNRAuth(const QString &url)
 
 HttpStatus::Code pbsClient::auth(const QString &host, const QString &username, const QString &password)
 {
+    return auth(host, 8007, username, password);
+}
+
+HttpStatus::Code pbsClient::auth(const QString &host, int port, const QString &username, const QString &password)
+{
     this->host = host;
     this->username = username;
     this->password = password;
+    this->port = port;
 
     QString url = genPBSAPIPath("json/access/ticket");
 
@@ -71,13 +77,13 @@ HttpStatus::Code pbsClient::auth(const QString &host, const QString &username, c
 
 QString pbsClient::genPBSAPIPath(const QString &path)
 {
-    QString url = QString("https://%1:8007/api2/%2").arg(host, path);
+    QString url = QString("https://%1:%2/api2/%3").arg(host).arg(port).arg(path);
     return url;
 }
 
 QString pbsClient::genPBSAPIPath(const QString &path, const QUrlQuery &query)
 {
-    QUrl url = QUrl(QString("https://%1:8007/api2/%2").arg(host, path));
+    QUrl url = QUrl(QString("https://%1:%2/api2/%3").arg(host).arg(port).arg(path));
     url.setQuery(query);
     return url.toString();
 }
