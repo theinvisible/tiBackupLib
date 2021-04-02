@@ -65,7 +65,6 @@ HttpStatus::Code pbsClient::auth(const QString &host, int port, const QString &u
     ticket = json.object()["data"].toObject()["ticket"].toString();
     CSRF = json.object()["data"].toObject()["CSRFPreventionToken"].toString();
 
-    qInfo() << "replyauth::" << status << url << reply->rawHeaderList() << ticket << CSRF;
     if(status == HttpStatus::Code::OK)
     {
         QNetworkCookie cookie = QNetworkCookie("PBSAuthCookie", ticket.toUtf8());
