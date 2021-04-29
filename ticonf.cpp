@@ -176,6 +176,23 @@ void tiConfBackupJobs::saveBackupJob(const tiBackupJob &job)
     f->setValue("afterBackup", job.scriptAfterBackup);
     f->endGroup();
 
+    f->beginGroup("pbs");
+    f->setValue("enabled", job.pbs);
+    f->setValue("pbs_server_uuid", job.pbs_server_uuid);
+    f->setValue("pbs_server_storage", job.pbs_server_storage);
+    f->setValue("pbs_dest_folder", job.pbs_dest_folder);
+    f->beginWriteArray("pbs_ids");
+    QListIterator<int> it2(job.pbs_backup_ids);
+    int j = 0;
+    while(it2.hasNext())
+    {
+        f->setArrayIndex(j);
+        f->setValue("id", it2.next());
+        j++;
+    }
+    f->endArray();
+    f->endGroup();
+
     f->beginGroup("task");
     f->setValue("type", static_cast<int>(job.intervalType));
     f->setValue("time", job.intervalTime);
@@ -238,6 +255,20 @@ void tiConfBackupJobs::readBackupJobs()
             f->beginGroup("scripts");
             job->scriptBeforeBackup = f->value("beforeBackup").toString();
             job->scriptAfterBackup = f->value("afterBackup").toString();
+            f->endGroup();
+
+            f->beginGroup("pbs");
+            job->pbs = f->value("enabled").toBool();
+            job->pbs_server_uuid = f->value("pbs_server_uuid").toString();
+            job->pbs_server_storage = f->value("pbs_server_storage").toString();
+            job->pbs_dest_folder = f->value("pbs_dest_folder").toString();
+            int size2 = f->beginReadArray("pbs_ids");
+            for (int i = 0; i < size2; ++i)
+            {
+                f->setArrayIndex(i);
+                job->pbs_backup_ids.append(f->value("id").toInt());
+            }
+            f->endArray();
             f->endGroup();
 
             f->beginGroup("task");

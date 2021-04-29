@@ -80,6 +80,12 @@ public:
     tiBackupEncLUKS encLUKSType;
     QString encLUKSFilePath;
 
+    bool pbs;
+    QString pbs_server_uuid;
+    QString pbs_server_storage;
+    QList<int> pbs_backup_ids;
+    QString pbs_dest_folder;
+
     void startBackup();
     void startBackup(DeviceDiskPartition *part);
 };
