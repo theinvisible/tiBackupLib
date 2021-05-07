@@ -26,6 +26,8 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 #include <QDebug>
 #include <QDir>
 #include <QDateTime>
+#include <QJsonObject>
+#include <QJsonArray>
 
 #include "Poco/Net/NetException.h"
 #include "Poco/Net/MailMessage.h"
@@ -36,6 +38,7 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 #include "exitcodes.h"
 #include "../tibackuplib.h"
 #include "../ticonf.h"
+#include "../pbsclient.h"
 
 tiBackupJob::tiBackupJob()
 {
@@ -66,7 +69,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
 
     QString deviceMountDir;
     QString backupArg;
-    QList<QString> bakMessages;
+    QList<QString> bakMessages, pbsMessages;
     QList<tiBackupJobLog> bakLogs;
 
     if(delete_add_file_on_dest == true)
@@ -83,8 +86,8 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
 
     if(lib.isMounted(part))
     {
-        qDebug() << "tiBackupJob::startBackup() -> Device is already mounted on" << deviceMountDir;
         deviceMountDir = lib.getMountDir(part);
+        qDebug() << "tiBackupJob::startBackup() -> Device is already mounted on" << deviceMountDir;
     }
     else
     {
@@ -173,6 +176,47 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         bakLogs << log;
     }
 
+    // Do PBS backup if enabled
+    if(pbs)
+    {
+        tiConfPBServers *pbsconf = tiConfPBServers::instance();
+        PBServer *pb = pbsconf->getItemByUuid(pbs_server_uuid);
+        if(pb != 0)
+        {
+            pbsClient *pbs = pbsClient::instanceUnique();
+            HttpStatus::Code status = pbs->auth(pb->host, pb->port, pb->username, pb->password);
+            if(status == HttpStatus::Code::OK)
+            {
+                QListIterator<QString> pbs_items(pbs_backup_ids);
+                while(pbs_items.hasNext())
+                {
+                    QString pbs_groupid = pbs_items.next();
+                    QList<QString> pbs_id = pbs_groupid.split("/");
+
+                    pbsClient::HttpResponse ret = pbs->getDatastoreSnapshots(pbs_server_storage, pbs_id[1], pbs_id[0]);
+                    if(ret.status == HttpStatus::Code::OK)
+                    {
+                        QJsonArray snapshots = ret.data.object()["data"].toArray();
+                        qInfo() << "lastsnapbackup" << snapshots[snapshots.count()-1];
+                    }
+                    else
+                    {
+                        pbsMessages.append(QString("PBS datastore listing for %1 not successful").arg(pbs_groupid));
+                    }
+                }
+            }
+            else
+            {
+                pbsMessages.append(QString("PBS %1 auth not successful").arg(pbs_server_uuid));
+            }
+            pbs->deleteLater();
+        }
+        else
+        {
+            pbsMessages.append(QString("PBS %1 not found in config").arg(pbs_server_uuid));
+        }
+    }
+
     // Execute external script after backup if set
     if(!scriptAfterBackup.isEmpty() && QFile::exists(scriptAfterBackup))
     {
@@ -228,10 +272,18 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         {
             mailMsg.append(QString("  Backup scripts are okay.\n"));
         }
-
         for(int i=0; i < bakMessages.count() ; i++)
         {
             mailMsg.append(QString("  %1\n").arg(bakMessages.at(i)));
+        }
+
+        if(pbsMessages.count() == 0)
+        {
+            mailMsg.append(QString("  PBS-Backup is okay.\n"));
+        }
+        for(int i=0; i < pbsMessages.count() ; i++)
+        {
+            mailMsg.append(QString("  %1\n").arg(pbsMessages.at(i)));
         }
 
         // Rsync status

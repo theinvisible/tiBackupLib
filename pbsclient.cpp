@@ -108,11 +108,13 @@ pbsClient::HttpResponse pbsClient::getDatastores()
     return res;
 }
 
-pbsClient::HttpResponse pbsClient::getDatastoreSnapshots(const QString &datastore, const QString &backupid)
+pbsClient::HttpResponse pbsClient::getDatastoreSnapshots(const QString &datastore, const QString &backupid, const QString &backuptype)
 {
     QUrlQuery q;
     if(backupid != "")
         q.addQueryItem("backup-id", backupid);
+    if(backuptype != "")
+        q.addQueryItem("backup-type", backuptype);
     QString url = genPBSAPIPath(QString("json/admin/datastore/%1/snapshots").arg(datastore), q);
 
     QNetworkReply *reply = nam->get(getNRAuth(url));
@@ -172,6 +174,31 @@ pbsClient::HttpResponseRaw pbsClient::getBackupFile(const QString &datastore, co
     HttpResponseRaw res;
     res.status = static_cast<HttpStatus::Code>(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt());
     res.data = rdata;
+
+    if(res.status != HttpStatus::Code::OK)
+        qInfo() << res.status << url << rdata;
+
+    return res;
+}
+
+pbsClient::HttpResponse pbsClient::getBackupFiles(const QString &datastore, const QString &backupid, int backuptime, const QString &backuptype)
+{
+    QUrlQuery q;
+    q.addQueryItem("backup-id", backupid);
+    q.addQueryItem("backup-time", QString::number(backuptime));
+    q.addQueryItem("backup-type", backuptype);
+    QString url = genPBSAPIPath(QString("json/admin/datastore/%1/files").arg(datastore), q);
+
+    QNetworkReply *reply = nam->get(getNRAuth(url));
+    QEventLoop loop;
+    connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    loop.exec();
+
+    QByteArray rdata = reply->readAll();
+
+    HttpResponse res;
+    res.status = static_cast<HttpStatus::Code>(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt());
+    res.data = QJsonDocument::fromJson(rdata);
 
     if(res.status != HttpStatus::Code::OK)
         qInfo() << res.status << url << rdata;

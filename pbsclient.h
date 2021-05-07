@@ -47,6 +47,10 @@ public:
           _instance = new pbsClient();
        return _instance;
     }
+    static pbsClient* instanceUnique()
+    {
+        return new pbsClient();
+    }
     struct HttpResponse {
         HttpStatus::Code status;
         QJsonDocument data;
@@ -62,9 +66,10 @@ public:
     QString genPBSAPIPath(const QString &path, const QUrlQuery &query);
 
     HttpResponse getDatastores();
-    HttpResponse getDatastoreSnapshots(const QString &datastore, const QString &backupid = "");
+    HttpResponse getDatastoreSnapshots(const QString &datastore, const QString &backupid = "", const QString &backuptype = "");
     HttpResponse getDatastoreGroups(const QString &datastore);
     HttpResponseRaw getBackupFile(const QString &datastore, const QString &backupid, int backuptime, const QString &backuptype, const QString &filename);
+    HttpResponse getBackupFiles(const QString &datastore, const QString &backupid, int backuptime, const QString &backuptype);
 
 signals:
 

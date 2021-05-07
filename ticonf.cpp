@@ -182,7 +182,7 @@ void tiConfBackupJobs::saveBackupJob(const tiBackupJob &job)
     f->setValue("pbs_server_storage", job.pbs_server_storage);
     f->setValue("pbs_dest_folder", job.pbs_dest_folder);
     f->beginWriteArray("pbs_ids");
-    QListIterator<int> it2(job.pbs_backup_ids);
+    QListIterator<QString> it2(job.pbs_backup_ids);
     int j = 0;
     while(it2.hasNext())
     {
@@ -266,7 +266,7 @@ void tiConfBackupJobs::readBackupJobs()
             for (int i = 0; i < size2; ++i)
             {
                 f->setArrayIndex(i);
-                job->pbs_backup_ids.append(f->value("id").toInt());
+                job->pbs_backup_ids.append(f->value("id").toString());
             }
             f->endArray();
             f->endGroup();

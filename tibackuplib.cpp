@@ -132,7 +132,7 @@ bool TiBackupLib::isDeviceUSB(struct udev_device *device)
             //printf("Device is SD \n");
             retVal = true;
 
-            print_device(device, "UDEV");
+            //print_device(device, "UDEV");
         }
     }
     return retVal;
@@ -156,7 +156,7 @@ bool TiBackupLib::isDeviceATA(udev_device *device)
             //printf("Device is SD \n");
             retVal = true;
 
-            print_device(device, "UDEV");
+            //print_device(device, "UDEV");
         }
     }
     return retVal;
@@ -180,7 +180,7 @@ bool TiBackupLib::isDeviceSCSI(udev_device *device)
             //printf("Device is SD \n");
             retVal = true;
 
-            print_device(device, "UDEV");
+            //print_device(device, "UDEV");
         }
     }
     return retVal;
@@ -204,7 +204,7 @@ bool TiBackupLib::isDeviceNVME(udev_device *device)
             //printf("Device is SD \n");
             retVal = true;
 
-            print_device(device, "UDEV");
+            //print_device(device, "UDEV");
         }
     }
     return retVal;
@@ -231,7 +231,7 @@ bool TiBackupLib::isDeviceDisk(udev_device *device)
             //printf("Device is SD \n");
             retVal = true;
 
-            print_device(device, "UDEV");
+            //print_device(device, "UDEV");
         }
     }
     return retVal;
