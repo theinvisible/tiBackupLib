@@ -28,6 +28,9 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 #include <QDateTime>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QTimeZone>
+#include <QProcess>
+#include <QProcessEnvironment>
 
 #include "Poco/Net/NetException.h"
 #include "Poco/Net/MailMessage.h"
@@ -187,23 +190,75 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
             HttpStatus::Code status = pbs->auth(pb->host, pb->port, pb->username, pb->password);
             if(status == HttpStatus::Code::OK)
             {
+                // Create process environment for proxmox-backup-client
+                QProcess p;
+                QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+                env.insert("PBS_REPOSITORY", QString("%1@%2:%3").arg(pb->username, pb->host, pbs_server_storage));
+                env.insert("PBS_PASSWORD", pb->password);
+                env.insert("PROXMOX_OUTPUT_FORMAT", "json");
+                p.setProcessEnvironment(env);
+                p.setProcessChannelMode(QProcess::MergedChannels);
+
                 QListIterator<QString> pbs_items(pbs_backup_ids);
                 while(pbs_items.hasNext())
                 {
                     QString pbs_groupid = pbs_items.next();
                     QList<QString> pbs_id = pbs_groupid.split("/");
+                    QDir vmdir(QString("%1/%1").arg(pbs_dest_folder, pbs_id[1]));
+                    vmdir.mkpath(vmdir.path());
 
                     pbsClient::HttpResponse ret = pbs->getDatastoreSnapshots(pbs_server_storage, pbs_id[1], pbs_id[0]);
                     if(ret.status == HttpStatus::Code::OK)
                     {
                         QJsonArray snapshots = ret.data.object()["data"].toArray();
-                        qInfo() << "lastsnapbackup" << snapshots[snapshots.count()-1];
+                        if(snapshots.count() > 0)
+                        {
+                            // Get last backup
+                            int lb = 0, li = 0;
+                            for(int i=0; i < snapshots.count(); i++)
+                            {
+                                QJsonObject snap = snapshots[i].toObject();
+                                if(snap["backup-time"].toInt() > lb) {
+                                    li = i;
+                                    lb = snap["backup-time"].toInt();
+                                }
+                            }
+
+                            QJsonObject snap = snapshots[li].toObject();
+                            qint64 blastbackup = snap["backup-time"].toInt();
+                            QDateTime dt = QDateTime::fromMSecsSinceEpoch(blastbackup * 1000).toTimeSpec(Qt::UTC);
+                            qInfo() << "lastsnapbackup2" << snap["backup-time"].toInt() << pbs_groupid << dt.toString(Qt::ISODate);
+
+                            QJsonArray files = snap["files"].toArray();
+                            for(int j=0; j < files.count(); j++)
+                            {
+                                QString file = files[j].toString();
+                                QString respec = QString("%1/%2").arg(pbs_groupid, dt.toString(Qt::ISODate));
+
+                                p.start("proxmox-backup-client", QStringList() << "restore" << respec << file << vmdir.path().append("/").append(file));
+                                p.waitForStarted();
+                                p.waitForFinished();
+                                if(p.exitCode() == 0)
+                                {
+                                    qInfo() << "Successful backup for " << respec << file << p.readAll();
+                                }
+                                else
+                                {
+                                    qInfo() << "Failed backup for " << respec << file << p.readAll();
+                                }
+                            }
+                        }
+                        else
+                        {
+                            pbsMessages.append(QString("VM-ID %1 has no backups, skipping").arg(pbs_groupid));
+                        }
                     }
                     else
                     {
                         pbsMessages.append(QString("PBS datastore listing for %1 not successful").arg(pbs_groupid));
                     }
                 }
+                p.close();
             }
             else
             {
@@ -327,11 +382,11 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
 
             qDebug() << "tiBackupJob::startBackup() -> Mail message was send to " << notifyRecipients;
         }
-        catch(Poco::Net::SMTPException e)
+        catch(Poco::Net::SMTPException &e)
         {
             qWarning() << "tiBackupJob::startBackup() -> Mail message was NOT send. Error occured: " << QString::fromStdString(e.message());
         }
-        catch(Poco::Net::HostNotFoundException e)
+        catch(Poco::Net::HostNotFoundException &e)
         {
             qWarning() << "tiBackupJob::startBackup() -> Mail message was NOT send. Hostname not found: " << QString::fromStdString(e.message());
         }

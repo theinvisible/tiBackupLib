@@ -423,6 +423,9 @@ int TiBackupLib::runCommandwithReturnCodePipe(const QString &cmd, int timeout)
 
 QString TiBackupLib::convertPath2Generic(const QString &path, const QString &mountdir)
 {
+    if(mountdir.isEmpty())
+        return path;
+
     QString str = path;
     str.replace(mountdir, QString(tibackup_config::var_partbackup_dir));
     return str;
