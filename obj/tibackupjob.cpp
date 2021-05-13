@@ -191,21 +191,21 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
             if(status == HttpStatus::Code::OK)
             {
                 // Create process environment for proxmox-backup-client
-                QProcess p;
                 QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
                 env.insert("PBS_REPOSITORY", QString("%1@%2:%3").arg(pb->username, pb->host, pbs_server_storage));
                 env.insert("PBS_PASSWORD", pb->password);
+                env.insert("PBS_FINGERPRINT", pb->fingerprint);
                 env.insert("PROXMOX_OUTPUT_FORMAT", "json");
-                p.setProcessEnvironment(env);
-                p.setProcessChannelMode(QProcess::MergedChannels);
 
                 QListIterator<QString> pbs_items(pbs_backup_ids);
                 while(pbs_items.hasNext())
                 {
                     QString pbs_groupid = pbs_items.next();
                     QList<QString> pbs_id = pbs_groupid.split("/");
-                    QDir vmdir(QString("%1/%1").arg(pbs_dest_folder, pbs_id[1]));
+                    QDir vmdir(QString("%1/%2").arg(pbs_dest_folder, pbs_id[1]));
                     vmdir.mkpath(vmdir.path());
+
+                    qInfo() << "start backup for id " << pbs_groupid << "path::" << vmdir.path();
 
                     pbsClient::HttpResponse ret = pbs->getDatastoreSnapshots(pbs_server_storage, pbs_id[1], pbs_id[0]);
                     if(ret.status == HttpStatus::Code::OK)
@@ -227,14 +227,23 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                             QJsonObject snap = snapshots[li].toObject();
                             qint64 blastbackup = snap["backup-time"].toInt();
                             QDateTime dt = QDateTime::fromMSecsSinceEpoch(blastbackup * 1000).toTimeSpec(Qt::UTC);
-                            qInfo() << "lastsnapbackup2" << snap["backup-time"].toInt() << pbs_groupid << dt.toString(Qt::ISODate);
+                            qInfo() << "pbs-last-backup" << pbs_groupid << dt.toString(Qt::ISODate);
 
                             QJsonArray files = snap["files"].toArray();
+                            qInfo() << "pbs files to restore" << files;
                             for(int j=0; j < files.count(); j++)
                             {
-                                QString file = files[j].toString();
-                                QString respec = QString("%1/%2").arg(pbs_groupid, dt.toString(Qt::ISODate));
+                                QRegularExpression re("^(.*?)\\.[^.]*$");
+                                QRegularExpressionMatch match = re.match(files[j].toObject()["filename"].toString());
+                                QString file = match.captured(1);
 
+                                //QString file = files[j].toString();
+                                QString respec = QString("%1/%2").arg(pbs_groupid, dt.toString(Qt::ISODate));
+                                qInfo() << "pbs do file backup file::" << file << "orig::" << files[j].toObject()["filename"].toString();
+
+                                QProcess p;
+                                p.setProcessEnvironment(env);
+                                p.setProcessChannelMode(QProcess::MergedChannels);
                                 p.start("proxmox-backup-client", QStringList() << "restore" << respec << file << vmdir.path().append("/").append(file));
                                 p.waitForStarted();
                                 p.waitForFinished();
@@ -246,6 +255,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 {
                                     qInfo() << "Failed backup for " << respec << file << p.readAll();
                                 }
+                                p.close();
                             }
                         }
                         else
@@ -258,7 +268,6 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                         pbsMessages.append(QString("PBS datastore listing for %1 not successful").arg(pbs_groupid));
                     }
                 }
-                p.close();
             }
             else
             {

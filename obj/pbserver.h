@@ -15,6 +15,7 @@ public:
     uint port;
     QString username;
     QString password;
+    QString fingerprint;
 
     void genNewUuid();
 };
