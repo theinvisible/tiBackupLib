@@ -31,6 +31,8 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 #include <QTimeZone>
 #include <QProcess>
 #include <QProcessEnvironment>
+#include <QRegularExpression>
+#include <QRegularExpressionMatch>
 
 #include "Poco/Net/NetException.h"
 #include "Poco/Net/MailMessage.h"
