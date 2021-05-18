@@ -204,6 +204,8 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                 {
                     QString pbs_groupid = pbs_items.next();
                     QList<QString> pbs_id = pbs_groupid.split("/");
+                    QString vmType = pbs_id[0];
+                    QString vmID = pbs_id[1];
                     QDir vmdir(QString("%1/%2").arg(pbs_dest_folder, pbs_id[1]));
                     vmdir.mkpath(vmdir.path());
 
@@ -231,6 +233,9 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                             QDateTime dt = QDateTime::fromMSecsSinceEpoch(blastbackup * 1000).toTimeSpec(Qt::UTC);
                             qInfo() << "pbs-last-backup" << pbs_groupid << dt.toString(Qt::ISODate);
 
+                            QString vmConf = "";
+                            QStringList vmImages;
+
                             QJsonArray files = snap["files"].toArray();
                             qInfo() << "pbs files to restore" << files;
                             for(int j=0; j < files.count(); j++)
@@ -242,6 +247,19 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 //QString file = files[j].toString();
                                 QString respec = QString("%1/%2").arg(pbs_groupid, dt.toString(Qt::ISODate));
                                 qInfo() << "pbs do file backup file::" << file << "orig::" << files[j].toObject()["filename"].toString();
+
+                                if(file.endsWith(".conf"))
+                                {
+                                    vmConf = file;
+                                }
+                                else if(file.endsWith(".pxar") || file.endsWith(".img"))
+                                {
+                                    vmImages << file;
+                                }
+                                else
+                                {
+                                    continue;
+                                }
 
                                 QProcess p;
                                 p.setProcessEnvironment(env);
@@ -258,6 +276,29 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                     qInfo() << "Failed backup for " << respec << file << p.readAll();
                                 }
                                 p.close();
+                            }
+
+                            // Package VM depending on type
+                            if(vmType == "vm")
+                            {
+                                QString images;
+                                for(int k=0; k < vmImages.count(); k++)
+                                {
+                                    QString devname = vmImages[k].split(".")[0];
+                                    images = images.append(devname).append("=").append(vmdir.path().append("/")).append(vmImages[k]).append(" ");
+                                }
+
+                                QString outName = QString("vzdump-qemu-%1-%2.vma.zst").arg(vmID, dt.toString("yyyy_MM_dd-hh_mm_ss"));
+                                lib.runCommandwithReturnCode(QString("vma create %1vm.vma -c %2 %3").arg(vmdir.path().append("/"), vmdir.path().append("/").append(vmConf), images), -1);
+                                lib.runCommandwithReturnCode(QString("zstd -f -10 --rm %1vm.vma -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)), -1);
+                            }
+                            else if(vmType == "ct")
+                            {
+                                QString outName = QString("vzdump-lxc-%1-%2.tar.zst").arg(vmID, dt.toString("yyyy_MM_dd-hh_mm_ss"));
+                                vmdir.mkpath(vmdir.path().append("/").append(vmImages[0]).append("/etc/vzdump/"));
+                                QFile::copy(vmdir.path().append("/").append(vmConf), vmdir.path().append("/").append(vmImages[0]).append("/etc/vzdump/").append(vmConf));
+                                lib.runCommandwithReturnCode(QString("tar -C %1 -cf %2ct.tar .").arg(vmdir.path().append("/").append(vmImages[0]), vmdir.path().append("/")), -1);
+                                lib.runCommandwithReturnCode(QString("zstd -f -10 --rm %1ct.tar -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)), -1);
                             }
                         }
                         else
