@@ -76,6 +76,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
     QString backupArg;
     QList<QString> bakMessages, pbsMessages;
     QList<tiBackupJobLog> bakLogs;
+    QList<tiBackupJobPBSLog> bakPBSLogs;
 
     if(delete_add_file_on_dest == true)
     {
@@ -209,7 +210,10 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                     QDir vmdir(QString("%1/%2").arg(pbs_dest_folder, pbs_id[1]));
                     vmdir.mkpath(vmdir.path());
 
-                    qInfo() << "start backup for id " << pbs_groupid << "path::" << vmdir.path();
+                    tiBackupJobPBSLog log;
+                    log.vmid = pbs_groupid;
+
+                    qDebug() << "start backup for id " << pbs_groupid << "path::" << vmdir.path();
 
                     pbsClient::HttpResponse ret = pbs->getDatastoreSnapshots(pbs_server_storage, pbs_id[1], pbs_id[0]);
                     if(ret.status == HttpStatus::Code::OK)
@@ -231,13 +235,13 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                             QJsonObject snap = snapshots[li].toObject();
                             qint64 blastbackup = snap["backup-time"].toInt();
                             QDateTime dt = QDateTime::fromMSecsSinceEpoch(blastbackup * 1000).toTimeSpec(Qt::UTC);
-                            qInfo() << "pbs-last-backup" << pbs_groupid << dt.toString(Qt::ISODate);
+                            qDebug() << "pbs-last-backup" << pbs_groupid << dt.toString(Qt::ISODate);
 
                             QString vmConf = "";
                             QStringList vmImages;
 
                             QJsonArray files = snap["files"].toArray();
-                            qInfo() << "pbs files to restore" << files;
+                            qDebug() << "pbs files to restore" << files;
                             for(int j=0; j < files.count(); j++)
                             {
                                 QRegularExpression re("^(.*?)\\.[^.]*$");
@@ -246,7 +250,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
 
                                 //QString file = files[j].toString();
                                 QString respec = QString("%1/%2").arg(pbs_groupid, dt.toString(Qt::ISODate));
-                                qInfo() << "pbs do file backup file::" << file << "orig::" << files[j].toObject()["filename"].toString();
+                                qDebug() << "pbs do file backup file::" << file << "orig::" << files[j].toObject()["filename"].toString();
 
                                 if(file.endsWith(".conf"))
                                 {
@@ -269,11 +273,11 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 p.waitForFinished();
                                 if(p.exitCode() == 0)
                                 {
-                                    qInfo() << "Successful backup for " << respec << file << p.readAll();
+                                    qDebug() << "Successful backup for " << respec << file << p.readAll();
                                 }
                                 else
                                 {
-                                    qInfo() << "Failed backup for " << respec << file << p.readAll();
+                                    qDebug() << "Failed backup for " << respec << file << p.readAll();
                                 }
                                 p.close();
                             }
@@ -289,27 +293,64 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 }
 
                                 QString outName = QString("vzdump-qemu-%1-%2.vma.zst").arg(vmID, dt.toString("yyyy_MM_dd-hh_mm_ss"));
-                                lib.runCommandwithReturnCode(QString("vma create %1vm.vma -c %2 %3").arg(vmdir.path().append("/"), vmdir.path().append("/").append(vmConf), images), -1);
-                                lib.runCommandwithReturnCode(QString("zstd -f -10 --rm %1vm.vma -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)), -1);
+                                if(lib.runCommandwithReturnCode(QString("vma create %1vm.vma -c %2 %3").arg(vmdir.path().append("/"), vmdir.path().append("/").append(vmConf), images), -1) == 0)
+                                {
+                                    if(lib.runCommandwithReturnCode(QString("zstd -f -10 --rm %1vm.vma -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)), -1) == 0)
+                                    {
+                                        log.msg = QString("Successful backup, files: %1, archive: %2").arg(vmImages.join(" "), outName);
+                                    }
+                                    else
+                                    {
+                                        log.msg = QString("Compression failed, cmd: %1").arg(QString("zstd -f -10 --rm %1vm.vma -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)));
+                                    }
+                                }
+                                else
+                                {
+                                    log.msg = QString("Packaging failed, cmd: %1").arg(QString("vma create %1vm.vma -c %2 %3").arg(vmdir.path().append("/"), vmdir.path().append("/").append(vmConf), images));
+                                }
                             }
                             else if(vmType == "ct")
                             {
                                 QString outName = QString("vzdump-lxc-%1-%2.tar.zst").arg(vmID, dt.toString("yyyy_MM_dd-hh_mm_ss"));
                                 vmdir.mkpath(vmdir.path().append("/").append(vmImages[0]).append("/etc/vzdump/"));
                                 QFile::copy(vmdir.path().append("/").append(vmConf), vmdir.path().append("/").append(vmImages[0]).append("/etc/vzdump/").append(vmConf));
-                                lib.runCommandwithReturnCode(QString("tar -C %1 -cf %2ct.tar .").arg(vmdir.path().append("/").append(vmImages[0]), vmdir.path().append("/")), -1);
-                                lib.runCommandwithReturnCode(QString("zstd -f -10 --rm %1ct.tar -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)), -1);
+                                if(lib.runCommandwithReturnCode(QString("tar --remove-files -C %1 -cf %2ct.tar .").arg(vmdir.path().append("/").append(vmImages[0]), vmdir.path().append("/")), -1) == 0)
+                                {
+                                    if(lib.runCommandwithReturnCode(QString("zstd -f -10 --rm %1ct.tar -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)), -1) == 0)
+                                    {
+                                        log.msg = QString("Successful backup, files: %1, archive: %2").arg(vmImages.join(" "), outName);
+                                    }
+                                    else
+                                    {
+                                        log.msg = QString("Compression failed, cmd: %1").arg(QString("zstd -f -10 --rm %1ct.tar -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)));
+                                    }
+                                }
+                                else
+                                {
+                                    log.msg = QString("Packaging failed, cmd: %1").arg(QString("tar -C %1 -cf %2ct.tar .").arg(vmdir.path().append("/").append(vmImages[0]), vmdir.path().append("/")));
+                                }
+                            }
+
+                            // Cleanup
+                            vmdir.remove(vmdir.path().append("/").append(vmConf));
+                            for(int l=0; l < vmImages.count(); l++)
+                            {
+                                QString image = vmImages[l];
+                                vmdir.remove(vmdir.path().append("/").append(image));
                             }
                         }
                         else
                         {
                             pbsMessages.append(QString("VM-ID %1 has no backups, skipping").arg(pbs_groupid));
                         }
+
                     }
                     else
                     {
                         pbsMessages.append(QString("PBS datastore listing for %1 not successful").arg(pbs_groupid));
                     }
+
+                    bakPBSLogs << log;
                 }
             }
             else
@@ -391,6 +432,17 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         for(int i=0; i < pbsMessages.count() ; i++)
         {
             mailMsg.append(QString("  %1\n").arg(pbsMessages.at(i)));
+        }
+
+        // PBS status
+        if(pbs)
+        {
+            mailMsg.append(QString("\nPBS status information: \n\n"));
+            for(int ia=0; ia<bakPBSLogs.size(); ia++)
+            {
+                tiBackupJobPBSLog log = bakPBSLogs.at(ia);
+                mailMsg.append(QString("  %1 -> %2\n").arg(log.vmid, log.msg));
+            }
         }
 
         // Rsync status
