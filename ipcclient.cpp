@@ -150,3 +150,38 @@ DeviceDiskPartition ipcClient::getPartitionByUUID(const QString &uuid)
 
     return part;
 }
+
+ipcClient::STATUS_ANSWER ipcClient::mountPartition(const DeviceDiskPartition &part, const tiBackupJob &job)
+{
+    ipcClient::STATUS_ANSWER ret;
+
+    QLocalSocket *apiClient = new QLocalSocket(this);
+    apiClient->connectToServer(tibackup_config::api_sock_name);
+    if(apiClient->waitForConnected(1000))
+    {
+        QByteArray block;
+        QDataStream out(&block, QIODevice::WriteOnly);
+        out.setVersion(tibackup_config::ipc_version);
+        QHash<tiBackupApi::API_VAR, QString> apiData;
+        apiData[tiBackupApi::API_VAR::API_VAR_CMD] = tiBackupApi::API_CMD::API_CMD_PART_MOUNT;
+        apiData[tiBackupApi::API_VAR::API_VAR_PART_UUID] = part.uuid;
+        apiData[tiBackupApi::API_VAR::API_VAR_JOB_LUKS_TYPE] = job.encLUKSType;
+        apiData[tiBackupApi::API_VAR::API_VAR_JOB_LUKS_FILEPATH] = job.encLUKSFilePath;
+        out << apiData;
+
+        apiClient->write(block);
+        apiClient->flush();
+
+        ret.status = ipcClient::STATUS_OK;
+    }
+    else
+    {
+        ret.status = ipcClient::STATUS_CONNECT_FAILED;
+        ret.msg = apiClient->errorString();
+    }
+
+    apiClient->close();
+    apiClient->disconnect();
+
+    return ret;
+}

@@ -4,6 +4,7 @@
 #include <QObject>
 
 #include "obj/devicedisk.h"
+#include "obj/tibackupjob.h"
 
 class ipcClient : public QObject
 {
@@ -35,6 +36,7 @@ public:
     QList<DeviceDiskPartition> getPartitionsForDevName(const QString &devname);
     DeviceDiskPartition getPartitionByDevnameUUID(const QString &devname, const QString &uuid);
     DeviceDiskPartition getPartitionByUUID(const QString &uuid);
+    STATUS_ANSWER mountPartition(const DeviceDiskPartition &part, const tiBackupJob &job);
 
 private:
     static ipcClient* _instance;

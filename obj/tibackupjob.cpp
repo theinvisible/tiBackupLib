@@ -277,7 +277,9 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 }
                                 else
                                 {
-                                    qDebug() << "Failed backup for " << respec << file << p.readAll();
+                                    QByteArray err = p.readAll();
+                                    log.msg.append(err).append(", ");
+                                    qDebug() << "Failed backup for " << respec << file << err;
                                 }
                                 p.close();
                             }
@@ -297,16 +299,16 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 {
                                     if(lib.runCommandwithReturnCode(QString("zstd -f -10 --rm %1vm.vma -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)), -1) == 0)
                                     {
-                                        log.msg = QString("Successful backup, files: %1, archive: %2").arg(vmImages.join(" "), outName);
+                                        log.msg.append(QString("Successful backup, files: %1, archive: %2").arg(vmImages.join(" "), outName));
                                     }
                                     else
                                     {
-                                        log.msg = QString("Compression failed, cmd: %1").arg(QString("zstd -f -10 --rm %1vm.vma -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)));
+                                        log.msg.append(QString("Compression failed, cmd: %1").arg(QString("zstd -f -10 --rm %1vm.vma -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName))));
                                     }
                                 }
                                 else
                                 {
-                                    log.msg = QString("Packaging failed, cmd: %1").arg(QString("vma create %1vm.vma -c %2 %3").arg(vmdir.path().append("/"), vmdir.path().append("/").append(vmConf), images));
+                                    log.msg.append(QString("Packaging failed, cmd: %1").arg(QString("vma create %1vm.vma -c %2 %3").arg(vmdir.path().append("/"), vmdir.path().append("/").append(vmConf), images)));
                                 }
                             }
                             else if(vmType == "ct")
@@ -318,16 +320,16 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 {
                                     if(lib.runCommandwithReturnCode(QString("zstd -f -10 --rm %1ct.tar -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)), -1) == 0)
                                     {
-                                        log.msg = QString("Successful backup, files: %1, archive: %2").arg(vmImages.join(" "), outName);
+                                        log.msg.append(QString("Successful backup, files: %1, archive: %2").arg(vmImages.join(" "), outName));
                                     }
                                     else
                                     {
-                                        log.msg = QString("Compression failed, cmd: %1").arg(QString("zstd -f -10 --rm %1ct.tar -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)));
+                                        log.msg.append(QString("Compression failed, cmd: %1").arg(QString("zstd -f -10 --rm %1ct.tar -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName))));
                                     }
                                 }
                                 else
                                 {
-                                    log.msg = QString("Packaging failed, cmd: %1").arg(QString("tar -C %1 -cf %2ct.tar .").arg(vmdir.path().append("/").append(vmImages[0]), vmdir.path().append("/")));
+                                    log.msg.append(QString("Packaging failed, cmd: %1").arg(QString("tar -C %1 -cf %2ct.tar .").arg(vmdir.path().append("/").append(vmImages[0]), vmdir.path().append("/"))));
                                 }
                             }
 

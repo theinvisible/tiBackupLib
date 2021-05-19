@@ -77,7 +77,7 @@ void tiBackupDiskObserver::start()
     }
 
     while (1) {
-        printf("Polling for new data... \n");
+        printf("Polling devices... \n");
 
         QCoreApplication::processEvents();
 
