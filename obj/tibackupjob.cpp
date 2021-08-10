@@ -269,8 +269,8 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 p.setProcessEnvironment(env);
                                 p.setProcessChannelMode(QProcess::MergedChannels);
                                 p.start("proxmox-backup-client", QStringList() << "restore" << respec << file << vmdir.path().append("/").append(file));
-                                p.waitForStarted();
-                                p.waitForFinished();
+                                p.waitForStarted(-1);
+                                p.waitForFinished(-1);
                                 if(p.exitCode() == 0)
                                 {
                                     qDebug() << "Successful backup for " << respec << file << p.readAll();
@@ -316,7 +316,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 QString outName = QString("vzdump-lxc-%1-%2.tar.zst").arg(vmID, dt.toString("yyyy_MM_dd-hh_mm_ss"));
                                 vmdir.mkpath(vmdir.path().append("/").append(vmImages[0]).append("/etc/vzdump/"));
                                 QFile::copy(vmdir.path().append("/").append(vmConf), vmdir.path().append("/").append(vmImages[0]).append("/etc/vzdump/").append(vmConf));
-                                if(lib.runCommandwithReturnCode(QString("tar --remove-files -C %1 -cf %2ct.tar .").arg(vmdir.path().append("/").append(vmImages[0]), vmdir.path().append("/")), -1) == 0)
+                                if(lib.runCommandwithReturnCode(QString("tar -C %1 -cf %2ct.tar .").arg(vmdir.path().append("/").append(vmImages[0]), vmdir.path().append("/")), -1) == 0)
                                 {
                                     if(lib.runCommandwithReturnCode(QString("zstd -f -10 --rm %1ct.tar -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)), -1) == 0)
                                     {
@@ -338,7 +338,12 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                             for(int l=0; l < vmImages.count(); l++)
                             {
                                 QString image = vmImages[l];
-                                vmdir.remove(vmdir.path().append("/").append(image));
+                                if(vmType == "ct") {
+                                    QDir archive_dir(vmdir.path().append("/").append(image));
+                                    archive_dir.removeRecursively();
+                                }
+                                else
+                                    vmdir.remove(vmdir.path().append("/").append(image));
                             }
                         }
                         else
