@@ -207,7 +207,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                     QList<QString> pbs_id = pbs_groupid.split("/");
                     QString vmType = pbs_id[0];
                     QString vmID = pbs_id[1];
-                    QDir vmdir(QString("%1/%2").arg(pbs_dest_folder, pbs_id[1]));
+                    QDir vmdir(QString("%1/%2").arg(TiBackupLib::convertGeneric2Path(pbs_dest_folder, deviceMountDir), pbs_id[1]));
                     vmdir.mkpath(vmdir.path());
 
                     tiBackupJobPBSLog log;
@@ -268,7 +268,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 QProcess p;
                                 p.setProcessEnvironment(env);
                                 p.setProcessChannelMode(QProcess::MergedChannels);
-                                p.start("proxmox-backup-client", QStringList() << "restore" << respec << file << TiBackupLib::convertGeneric2Path(vmdir.path().append("/").append(file), deviceMountDir));
+                                p.start("proxmox-backup-client", QStringList() << "restore" << respec << file << vmdir.path().append("/").append(file));
                                 p.waitForStarted();
                                 p.waitForFinished();
                                 if(p.exitCode() == 0)
