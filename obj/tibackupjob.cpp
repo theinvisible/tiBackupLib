@@ -268,7 +268,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 QProcess p;
                                 p.setProcessEnvironment(env);
                                 p.setProcessChannelMode(QProcess::MergedChannels);
-                                p.start("proxmox-backup-client", QStringList() << "restore" << respec << file << vmdir.path().append("/").append(file));
+                                p.start("proxmox-backup-client", QStringList() << "restore" << respec << file << TiBackupLib::convertGeneric2Path(vmdir.path().append("/").append(file), deviceMountDir));
                                 p.waitForStarted();
                                 p.waitForFinished();
                                 if(p.exitCode() == 0)
