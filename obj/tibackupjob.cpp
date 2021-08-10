@@ -250,7 +250,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
 
                                 //QString file = files[j].toString();
                                 QString respec = QString("%1/%2").arg(pbs_groupid, dt.toString(Qt::ISODate));
-                                qDebug() << "pbs do file backup file::" << file << "orig::" << files[j].toObject()["filename"].toString();
+                                qDebug() << "pbs do file backup restore::" << file << "orig::" << files[j].toObject()["filename"].toString();
 
                                 if(file.endsWith(".conf"))
                                 {
@@ -297,7 +297,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 QString outName = QString("vzdump-qemu-%1-%2.vma.zst").arg(vmID, dt.toString("yyyy_MM_dd-hh_mm_ss"));
                                 if(lib.runCommandwithReturnCode(QString("vma create %1vm.vma -c %2 %3").arg(vmdir.path().append("/"), vmdir.path().append("/").append(vmConf), images), -1) == 0)
                                 {
-                                    if(lib.runCommandwithReturnCode(QString("zstd -f -10 --rm %1vm.vma -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)), -1) == 0)
+                                    if(lib.runCommandwithReturnCode(QString("zstd -f -5 -T4 --rm %1vm.vma -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)), -1) == 0)
                                     {
                                         log.msg.append(QString("Successful backup, files: %1, archive: %2").arg(vmImages.join(" "), outName));
                                     }
@@ -318,7 +318,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 QFile::copy(vmdir.path().append("/").append(vmConf), vmdir.path().append("/").append(vmImages[0]).append("/etc/vzdump/").append(vmConf));
                                 if(lib.runCommandwithReturnCode(QString("tar -C %1 -cf %2ct.tar .").arg(vmdir.path().append("/").append(vmImages[0]), vmdir.path().append("/")), -1) == 0)
                                 {
-                                    if(lib.runCommandwithReturnCode(QString("zstd -f -10 --rm %1ct.tar -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)), -1) == 0)
+                                    if(lib.runCommandwithReturnCode(QString("zstd -f -5 -T4 --rm %1ct.tar -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)), -1) == 0)
                                     {
                                         log.msg.append(QString("Successful backup, files: %1, archive: %2").arg(vmImages.join(" "), outName));
                                     }
