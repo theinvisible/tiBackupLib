@@ -296,6 +296,9 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                     images = images.append(devname).append("=").append(vmdir.path().append("/")).append(vmImages[k]).append(" ");
                                 }
 
+                                // Cleanup old backups
+                                lib.runCommandwithReturnCodePipe(QString("rm -f %1vzdump-qemu-*").arg(vmdir.path().append("/")), -1);
+
                                 QString outName = QString("vzdump-qemu-%1-%2.vma.zst").arg(vmID, dt.toString("yyyy_MM_dd-hh_mm_ss"));
                                 /*
                                 if(lib.runCommandwithReturnCode(QString("vma create %1vm.vma -c %2 %3").arg(vmdir.path().append("/"), vmdir.path().append("/").append(vmConf), images), -1) == 0)
@@ -329,6 +332,10 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 QString outName = QString("vzdump-lxc-%1-%2.tar.zst").arg(vmID, dt.toString("yyyy_MM_dd-hh_mm_ss"));
                                 vmdir.mkpath(vmdir.path().append("/").append(vmImages[0]).append("/etc/vzdump/"));
                                 QFile::copy(vmdir.path().append("/").append(vmConf), vmdir.path().append("/").append(vmImages[0]).append("/etc/vzdump/").append(vmConf));
+
+                                // Cleanup old backups
+                                lib.runCommandwithReturnCodePipe(QString("rm -f %1vzdump-lxc-*").arg(vmdir.path().append("/")), -1);
+
                                 if(lib.runCommandwithReturnCode(QString("tar -C %1 -cf %2ct.tar .").arg(vmdir.path().append("/").append(vmImages[0]), vmdir.path().append("/")), -1) == 0)
                                 {
                                     if(lib.runCommandwithReturnCode(QString("zstd -f -3 -T4 --rm %1ct.tar -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)), -1) == 0)
