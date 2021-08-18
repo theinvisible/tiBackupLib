@@ -215,6 +215,8 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
 
                     qDebug() << "start backup for id " << pbs_groupid << "path::" << vmdir.path();
 
+                    // Do additional auth to avoid pbs ticket timeouts
+                    pbs->auth(pb->host, pb->port, pb->username, pb->password);
                     pbsClient::HttpResponse ret = pbs->getDatastoreSnapshots(pbs_server_storage, pbs_id[1], pbs_id[0]);
                     if(ret.status == HttpStatus::Code::OK)
                     {
@@ -295,9 +297,10 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 }
 
                                 QString outName = QString("vzdump-qemu-%1-%2.vma.zst").arg(vmID, dt.toString("yyyy_MM_dd-hh_mm_ss"));
+                                /*
                                 if(lib.runCommandwithReturnCode(QString("vma create %1vm.vma -c %2 %3").arg(vmdir.path().append("/"), vmdir.path().append("/").append(vmConf), images), -1) == 0)
                                 {
-                                    if(lib.runCommandwithReturnCode(QString("zstd -f -5 -T4 --rm %1vm.vma -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)), -1) == 0)
+                                    if(lib.runCommandwithReturnCode(QString("zstd -f -3 -T4 --rm %1vm.vma -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)), -1) == 0)
                                     {
                                         log.msg.append(QString("Successful backup, files: %1, archive: %2").arg(vmImages.join(" "), outName));
                                     }
@@ -310,6 +313,16 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 {
                                     log.msg.append(QString("Packaging failed, cmd: %1").arg(QString("vma create %1vm.vma -c %2 %3").arg(vmdir.path().append("/"), vmdir.path().append("/").append(vmConf), images)));
                                 }
+                                */
+                                QString vmacmd = QString("vma create /dev/stdout -c %1 %2").arg(vmdir.path().append("/").append(vmConf), images);
+                                if(lib.runCommandwithReturnCodePipe(QString("%1 | zstd -f -3 -T4 -o %2").arg(vmacmd, vmdir.path().append("/").append(outName)), -1) == 0)
+                                {
+                                    log.msg.append(QString("Successful backup, files: %1, archive: %2").arg(vmImages.join(" "), outName));
+                                }
+                                else
+                                {
+                                    log.msg.append(QString("Compression or packaging failed, cmd: %1").arg(QString("%1 | zstd -f -3 -T4 -o %2").arg(vmacmd, vmdir.path().append("/").append(outName))));
+                                }
                             }
                             else if(vmType == "ct")
                             {
@@ -318,7 +331,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 QFile::copy(vmdir.path().append("/").append(vmConf), vmdir.path().append("/").append(vmImages[0]).append("/etc/vzdump/").append(vmConf));
                                 if(lib.runCommandwithReturnCode(QString("tar -C %1 -cf %2ct.tar .").arg(vmdir.path().append("/").append(vmImages[0]), vmdir.path().append("/")), -1) == 0)
                                 {
-                                    if(lib.runCommandwithReturnCode(QString("zstd -f -5 -T4 --rm %1ct.tar -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)), -1) == 0)
+                                    if(lib.runCommandwithReturnCode(QString("zstd -f -3 -T4 --rm %1ct.tar -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)), -1) == 0)
                                     {
                                         log.msg.append(QString("Successful backup, files: %1, archive: %2").arg(vmImages.join(" "), outName));
                                     }
