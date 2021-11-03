@@ -95,6 +95,7 @@ public:
     QString pbs_dest_folder;
 
     void startBackup();
+    void startBackupThread();
     void startBackup(DeviceDiskPartition *part);
 };
 

@@ -33,6 +33,7 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 #include <QProcessEnvironment>
 #include <QRegularExpression>
 #include <QRegularExpressionMatch>
+#include <QThread>
 
 #include "Poco/Net/NetException.h"
 #include "Poco/Net/MailMessage.h"
@@ -44,6 +45,7 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 #include "../tibackuplib.h"
 #include "../ticonf.h"
 #include "../pbsclient.h"
+#include "workers/tibackupjobworker.h"
 
 tiBackupJob::tiBackupJob()
 {
@@ -65,6 +67,19 @@ void tiBackupJob::startBackup()
     }
 
     startBackup(&part);
+}
+
+void tiBackupJob::startBackupThread()
+{
+    QThread* thread = new QThread;
+    tiBackupJobWorker* worker = new tiBackupJobWorker();
+    worker->setJobName(name);
+    worker->moveToThread(thread);
+    QObject::connect(thread, SIGNAL(started()), worker, SLOT(process()));
+    QObject::connect(worker, SIGNAL(finished()), thread, SLOT(quit()));
+    QObject::connect(worker, SIGNAL(finished()), worker, SLOT(deleteLater()));
+    QObject::connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
+    thread->start();
 }
 
 void tiBackupJob::startBackup(DeviceDiskPartition *part)
