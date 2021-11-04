@@ -29,6 +29,8 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 #include "obj/tibackupjob.h"
 #include "obj/pbserver.h"
 
+class tiBackupJob;
+
 class tiConfMain
 {
 public:

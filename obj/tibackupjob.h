@@ -28,6 +28,9 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 #include <QHash>
 
 #include "devicedisk.h"
+#include "backupmanager.h"
+
+class backupManager;
 
 enum tiBackupJobInterval {
     tiBackupJobIntervalNONE,
@@ -95,7 +98,7 @@ public:
     QString pbs_dest_folder;
 
     void startBackup();
-    void startBackupThread();
+    void startBackupThread(backupManager *manager);
     void startBackup(DeviceDiskPartition *part);
 };
 

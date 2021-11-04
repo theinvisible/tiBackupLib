@@ -69,7 +69,7 @@ void tiBackupJob::startBackup()
     startBackup(&part);
 }
 
-void tiBackupJob::startBackupThread()
+void tiBackupJob::startBackupThread(backupManager *manager)
 {
     QThread* thread = new QThread;
     tiBackupJobWorker* worker = new tiBackupJobWorker();
@@ -79,6 +79,7 @@ void tiBackupJob::startBackupThread()
     QObject::connect(worker, SIGNAL(finished()), thread, SLOT(quit()));
     QObject::connect(worker, SIGNAL(finished()), worker, SLOT(deleteLater()));
     QObject::connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
+    QObject::connect(thread, &QThread::finished, manager, [=]() { manager->onBackupFinished(name); });
     thread->start();
 }
 
@@ -467,13 +468,21 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
             mailMsg.append(QString("  %1\n").arg(bakMessages.at(i)));
         }
 
-        if(pbsMessages.count() == 0)
+        if(pbs)
         {
-            mailMsg.append(QString("  PBS-Backup is okay.\n"));
-        }
-        for(int i=0; i < pbsMessages.count() ; i++)
-        {
-            mailMsg.append(QString("  %1\n").arg(pbsMessages.at(i)));
+            if(pbsMessages.count() == 0 && bakPBSLogs.count() == 0)
+            {
+                mailMsg.append(QString("  PBS-Backup is okay.\n"));
+            }
+            else
+            {
+                mailMsg.append(QString("  PBS-Backup problems occurred, see below.\n"));
+            }
+
+            for(int i=0; i < pbsMessages.count() ; i++)
+            {
+                mailMsg.append(QString("  %1\n").arg(pbsMessages.at(i)));
+            }
         }
 
         // PBS status

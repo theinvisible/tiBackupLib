@@ -13,6 +13,7 @@ TEMPLATE = lib
 DEFINES += TIBACKUPLIB_LIBRARY
 
 SOURCES += tibackuplib.cpp \
+    backupmanager.cpp \
     ipcclient.cpp \
     obj/devicedisk.cpp \
     obj/pbserver.cpp \
@@ -26,6 +27,7 @@ SOURCES += tibackuplib.cpp \
     obj/exitcodes.cpp
 
 HEADERS += tibackuplib.h\
+    backupmanager.h \
     ipcclient.h \
     obj/HttpStatusCodes.h \
     obj/pbserver.h \

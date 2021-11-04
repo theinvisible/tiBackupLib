@@ -1,8 +1,8 @@
-tibackuplib (0.7.1-5) precise; urgency=low
+tibackuplib (0.7.2-1) precise; urgency=low
 
   * For changelog see git commits
 
- -- Rene Hadler <rene@iksdeh.at>  Tue, 10 Aug 2021 10:15:00 +0100
+ -- Rene Hadler <rene@iksdeh.at>  Thu, 4 Nov 2021 10:15:00 +0100
 
 tibackuplib (0.7.0-1) precise; urgency=low
 
