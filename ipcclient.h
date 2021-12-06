@@ -37,6 +37,7 @@ public:
     DeviceDiskPartition getPartitionByDevnameUUID(const QString &devname, const QString &uuid);
     DeviceDiskPartition getPartitionByUUID(const QString &uuid);
     STATUS_ANSWER mountPartition(const DeviceDiskPartition &part, const tiBackupJob &job);
+    STATUS_ANSWER checkHealth();
 
 private:
     static ipcClient* _instance;

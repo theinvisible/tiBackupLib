@@ -185,3 +185,25 @@ ipcClient::STATUS_ANSWER ipcClient::mountPartition(const DeviceDiskPartition &pa
 
     return ret;
 }
+
+ipcClient::STATUS_ANSWER ipcClient::checkHealth()
+{
+    ipcClient::STATUS_ANSWER ret;
+
+    QLocalSocket *apiClient = new QLocalSocket(this);
+    apiClient->connectToServer(tibackup_config::api_sock_name);
+    if(apiClient->waitForConnected(1000))
+    {
+        ret.status = ipcClient::STATUS_OK;
+    }
+    else
+    {
+        ret.status = ipcClient::STATUS_CONNECT_FAILED;
+        ret.msg = apiClient->errorString();
+    }
+
+    apiClient->close();
+    apiClient->disconnect();
+
+    return ret;
+}
