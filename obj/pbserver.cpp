@@ -12,6 +12,8 @@ PBServer::PBServer()
     username = "";
     password = "";
     fingerprint = "";
+    keyfile = "";
+    keypass = "";
 }
 
 void PBServer::genNewUuid()

@@ -17,6 +17,9 @@ public:
     QString password;
     QString fingerprint;
 
+    QString keyfile;
+    QString keypass;
+
     void genNewUuid();
 };
 

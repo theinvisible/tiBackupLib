@@ -366,6 +366,8 @@ void tiConfPBServers::saveItem(const PBServer &item)
     f->setValue("username", item.username);
     f->setValue("password", item.password);
     f->setValue("fingerprint", item.fingerprint);
+    f->setValue("keyfile", item.keyfile);
+    f->setValue("keypass", item.keypass);
     f->endGroup();
 
     f->sync();
@@ -397,6 +399,8 @@ void tiConfPBServers::readItems()
             item->username = f->value("username").toString();
             item->password = f->value("password").toString();
             item->fingerprint = f->value("fingerprint").toString();
+            item->keyfile = f->value("keyfile").toString();
+            item->keypass = f->value("keypass").toString();
             f->endGroup();
 
             items.append(item);

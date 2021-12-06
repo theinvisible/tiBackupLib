@@ -215,6 +215,8 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                 env.insert("PBS_PASSWORD", pb->password);
                 env.insert("PBS_FINGERPRINT", pb->fingerprint);
                 env.insert("PROXMOX_OUTPUT_FORMAT", "json");
+                if(!pb->keypass.isEmpty())
+                    env.insert("PBS_ENCRYPTION_PASSWORD", pb->keypass);
 
                 QListIterator<QString> pbs_items(pbs_backup_ids);
                 while(pbs_items.hasNext())
@@ -286,7 +288,21 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 QProcess p;
                                 p.setProcessEnvironment(env);
                                 p.setProcessChannelMode(QProcess::MergedChannels);
-                                p.start("proxmox-backup-client", QStringList() << "restore" << respec << file << vmdir.path().append("/").append(file));
+                                QStringList startargs = QStringList() << "restore" << respec << file << vmdir.path().append("/").append(file);
+                                if(!pb->keyfile.isEmpty())
+                                {
+                                    if(QFile::exists(pb->keyfile))
+                                    {
+                                        startargs << "--keyfile" << pb->keyfile;
+                                    }
+                                    else
+                                    {
+                                        QString errmsg = QString("Encryption file %1 not found!").arg(pb->keyfile);
+                                        log.msg.append(errmsg).append(", ");
+                                        qDebug() << errmsg;
+                                    }
+                                }
+                                p.start("proxmox-backup-client", startargs);
                                 p.waitForStarted(-1);
                                 p.waitForFinished(-1);
                                 if(p.exitCode() == 0)
@@ -316,23 +332,6 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 lib.runCommandwithReturnCodePipe(QString("rm -f %1vzdump-qemu-*").arg(vmdir.path().append("/")), -1);
 
                                 QString outName = QString("vzdump-qemu-%1-%2.vma.zst").arg(vmID, dt.toString("yyyy_MM_dd-hh_mm_ss"));
-                                /*
-                                if(lib.runCommandwithReturnCode(QString("vma create %1vm.vma -c %2 %3").arg(vmdir.path().append("/"), vmdir.path().append("/").append(vmConf), images), -1) == 0)
-                                {
-                                    if(lib.runCommandwithReturnCode(QString("zstd -f -3 -T4 --rm %1vm.vma -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)), -1) == 0)
-                                    {
-                                        log.msg.append(QString("Successful backup, files: %1, archive: %2").arg(vmImages.join(" "), outName));
-                                    }
-                                    else
-                                    {
-                                        log.msg.append(QString("Compression failed, cmd: %1").arg(QString("zstd -f -10 --rm %1vm.vma -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName))));
-                                    }
-                                }
-                                else
-                                {
-                                    log.msg.append(QString("Packaging failed, cmd: %1").arg(QString("vma create %1vm.vma -c %2 %3").arg(vmdir.path().append("/"), vmdir.path().append("/").append(vmConf), images)));
-                                }
-                                */
                                 QString vmacmd = QString("vma create /dev/stdout -c %1 %2").arg(vmdir.path().append("/").append(vmConf), images);
                                 if(lib.runCommandwithReturnCodePipe(QString("%1 | zstd -f -3 -T4 -o %2").arg(vmacmd, vmdir.path().append("/").append(outName)), -1) == 0)
                                 {
