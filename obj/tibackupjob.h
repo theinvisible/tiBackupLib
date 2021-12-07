@@ -59,6 +59,7 @@ class tiBackupJobPBSLog
 public:
     QString vmid;
     QString msg;
+    QString errmsg;
     int ret_code;
 };
 

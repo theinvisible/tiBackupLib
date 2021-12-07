@@ -298,10 +298,11 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                     else
                                     {
                                         QString errmsg = QString("Encryption file %1 not found!").arg(pb->keyfile);
-                                        log.msg.append(errmsg).append(", ");
+                                        log.errmsg.append(errmsg).append(", ");
                                         qDebug() << errmsg;
                                     }
                                 }
+                                qDebug() << "Start backup cmd: " << "proxmox-backup-client " << startargs;
                                 p.start("proxmox-backup-client", startargs);
                                 p.waitForStarted(-1);
                                 p.waitForFinished(-1);
@@ -312,7 +313,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 else
                                 {
                                     QByteArray err = p.readAll();
-                                    log.msg.append(err).append(", ");
+                                    log.errmsg.append(err).append(", ");
                                     qDebug() << "Failed backup for " << respec << file << err;
                                 }
                                 p.close();
@@ -339,7 +340,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 }
                                 else
                                 {
-                                    log.msg.append(QString("Compression or packaging failed, cmd: %1").arg(QString("%1 | zstd -f -3 -T4 -o %2").arg(vmacmd, vmdir.path().append("/").append(outName))));
+                                    log.errmsg.append(QString("Compression or packaging failed, cmd: %1").arg(QString("%1 | zstd -f -3 -T4 -o %2").arg(vmacmd, vmdir.path().append("/").append(outName))));
                                 }
                             }
                             else if(vmType == "ct")
@@ -359,12 +360,12 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                     }
                                     else
                                     {
-                                        log.msg.append(QString("Compression failed, cmd: %1").arg(QString("zstd -f -10 --rm %1ct.tar -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName))));
+                                        log.errmsg.append(QString("Compression failed, cmd: %1").arg(QString("zstd -f -10 --rm %1ct.tar -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName))));
                                     }
                                 }
                                 else
                                 {
-                                    log.msg.append(QString("Packaging failed, cmd: %1").arg(QString("tar -C %1 -cf %2ct.tar .").arg(vmdir.path().append("/").append(vmImages[0]), vmdir.path().append("/"))));
+                                    log.errmsg.append(QString("Packaging failed, cmd: %1").arg(QString("tar -C %1 -cf %2ct.tar .").arg(vmdir.path().append("/").append(vmImages[0]), vmdir.path().append("/"))));
                                 }
                             }
 
@@ -469,7 +470,15 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
 
         if(pbs)
         {
-            if(pbsMessages.count() == 0 && bakPBSLogs.count() == 0)
+            bool pbsok = true;
+            for(int ia=0; ia<bakPBSLogs.size(); ia++)
+            {
+                tiBackupJobPBSLog log = bakPBSLogs.at(ia);
+                if(!log.errmsg.isEmpty())
+                    pbsok = false;
+            }
+
+            if(pbsMessages.count() == 0 && pbsok)
             {
                 mailMsg.append(QString("  PBS-Backup is okay.\n"));
             }
@@ -491,7 +500,10 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
             for(int ia=0; ia<bakPBSLogs.size(); ia++)
             {
                 tiBackupJobPBSLog log = bakPBSLogs.at(ia);
-                mailMsg.append(QString("  %1 -> %2\n").arg(log.vmid, log.msg));
+                if(log.errmsg.isEmpty())
+                    mailMsg.append(QString("  %1 -> %2\n").arg(log.vmid, log.msg));
+                else
+                    mailMsg.append(QString("  %1 -> %2, err: %3\n").arg(log.vmid, log.msg, log.errmsg));
             }
         }
 
