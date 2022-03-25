@@ -285,6 +285,12 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                     continue;
                                 }
 
+                                // If to be restored file exists delete it because proxmox-backup-client cannot overwrite files
+                                if(QFile::exists(vmdir.path().append("/").append(file)))
+                                {
+                                    lib.runCommandwithReturnCodePipe(QString("rm -f %1").arg(vmdir.path().append("/").append(file)), -1);
+                                }
+
                                 QProcess p;
                                 p.setProcessEnvironment(env);
                                 p.setProcessChannelMode(QProcess::MergedChannels);
