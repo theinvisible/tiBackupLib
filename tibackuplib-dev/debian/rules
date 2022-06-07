@@ -9,3 +9,6 @@ override_dh_auto_install:
 	cp -a ../*.h debian/tibackuplib-dev/usr/include/tibackuplib/.
 	cp -a ../obj/*.h debian/tibackuplib-dev/usr/include/tibackuplib/obj/.
 	cp -a ../workers/*.h debian/tibackuplib-dev/usr/include/tibackuplib/workers/.
+
+override_dh_builddeb:
+	dh_builddeb -- -Zxz
