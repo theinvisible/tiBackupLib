@@ -24,6 +24,32 @@ stages:
     - sed -i 's/\*version =.*/\*version = "99.9.'"${CI_PIPELINE_ID}"'-dev";/' ./config.h
   
 # Stage "ubuntu"
+build-ubuntu-2204-64-dev:  
+  <<: *build_template_def
+  stage: build
+  script:
+    - mkdir build
+    - cd tibackuplib-dev
+    - echo "y" | debuild -- clean
+    - echo "y" | debuild -eDEB_BUILD_OPTIONS="parallel=4" -us -uc
+    - cd ..
+    - mv tibackuplib-dev_*.deb build/
+    - echo "y" | debuild -- clean
+    - echo "y" | debuild -eDEB_BUILD_OPTIONS="parallel=4" -us -uc
+    - mv ../tibackuplib_*.deb build/
+    - upload_build_dev build/tibackuplib*.deb || true
+
+  # The files which are to be made available in GitLab
+  artifacts:
+    paths:
+      - build/*
+
+  tags:
+    - build-ubuntu-2204-64
+
+  only:
+    - master
+
 build-ubuntu-2004-64-dev:  
   <<: *build_template_def
   stage: build
@@ -159,6 +185,31 @@ build-debian-11-64-dev:
     - master
 
 # Stage "ubuntu"
+build-ubuntu-2204-64:  
+  stage: build
+  script:
+    - mkdir build
+    - cd tibackuplib-dev
+    - echo "y" | debuild -- clean
+    - echo "y" | debuild -eDEB_BUILD_OPTIONS="parallel=4" -us -uc
+    - cd ..
+    - mv tibackuplib-dev_*.deb build/
+    - echo "y" | debuild -- clean
+    - echo "y" | debuild -eDEB_BUILD_OPTIONS="parallel=4" -us -uc
+    - mv ../tibackuplib_*.deb build/
+    - upload_build_release build/tibackuplib*.deb || true
+
+  # The files which are to be made available in GitLab
+  artifacts:
+    paths:
+      - build/*
+
+  tags:
+    - build-ubuntu-2204-64
+
+  only:
+    - tags
+
 build-ubuntu-2004-64:  
   stage: build
   script:
