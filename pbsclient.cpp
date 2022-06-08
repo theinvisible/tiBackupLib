@@ -51,7 +51,7 @@ HttpStatus::Code pbsClient::auth(const QString &host, int port, const QString &u
 
     QUrlQuery postData;
     postData.addQueryItem("username", username);
-    postData.addQueryItem("password", password);
+    postData.addQueryItem("password", QUrl::toPercentEncoding(password));
 
     QNetworkReply *reply = nam->post(request, postData.toString(QUrl::FullyEncoded).toUtf8());
     QEventLoop loop;
