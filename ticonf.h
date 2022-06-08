@@ -43,6 +43,8 @@ public:
     void setValue(const QString &iniPath, const QVariant &val);
     void sync();
 
+    QString getLogsDetailDir();
+
 private:
     QSettings *settings;
 };

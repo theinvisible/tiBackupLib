@@ -55,14 +55,14 @@ void tiBackupJob::startBackup()
 {
     if(partition_uuid.isEmpty())
     {
-        qDebug() << "tiBackupJob::startBackup() -> Partition-UUID is not set";
+        qWarning() << "tiBackupJob::startBackup() -> Partition-UUID is not set";
         return;
     }
 
     DeviceDiskPartition part = TiBackupLib::getPartitionByUUID(partition_uuid);
     if(part.name.isEmpty())
     {
-        qDebug() << "tiBackupJob::startBackup() -> Disk for BackupJob ist not attached, aborting";
+        qWarning() << "tiBackupJob::startBackup() -> Disk for BackupJob ist not attached, aborting";
         return;
     }
 
@@ -94,31 +94,39 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
     QList<tiBackupJobLog> bakLogs;
     QList<tiBackupJobPBSLog> bakPBSLogs;
 
+    QDateTime currentDate = QDateTime::currentDateTime();
+    QFile *tibackupDetailLog = new QFile(QString("%1/%2__%3.log").arg(main_settings.getLogsDetailDir(), currentDate.toString("yyyy-MM-dd_HH-mm"), name));
+    tibackupDetailLog->open(QIODevice::WriteOnly | QIODevice::Text);
+
+    QTextStream detailLog(tibackupDetailLog);
+    detailLog << QString("Starting backup for %1 at %2 on %3 (%4)").arg(name, currentDate.toString("yyyy-MM-dd_HH-mm"), device, partition_uuid) << Qt::endl;
+
     if(delete_add_file_on_dest == true)
     {
-        qDebug() << "tiBackupJob::startBackup() -> Additional files will be deleted";
+        detailLog << "Feature: Additional files will be deleted" << Qt::endl;
         backupArg.append("--delete ");
     }
 
     if(compare_via_checksum == true)
     {
-        qDebug() << "tiBackupJob::startBackup() -> Checksum comparison enabled";
+        detailLog << "Feature: Checksum comparison enabled" << Qt::endl;
         backupArg.append("--checksum ");
     }
 
     if(lib.isMounted(part))
     {
         deviceMountDir = lib.getMountDir(part);
-        qDebug() << "tiBackupJob::startBackup() -> Device is already mounted on" << deviceMountDir;
+        detailLog << "Device is already mounted on " << deviceMountDir << Qt::endl;
     }
     else
     {
         deviceMountDir = lib.mountPartition(part, this);
-        qDebug() << "tiBackupJob::startBackup() -> Device was not mounted, mounting on" << deviceMountDir;
+        detailLog << "Device was not mounted, mounting on " << deviceMountDir << Qt::endl;
 
         if(!lib.isMounted(part))
         {
-            qDebug() << "tiBackupJob::startBackup() -> Device could not be mounted, aborting";
+            detailLog << "Device could not be mounted, aborting" << Qt::endl;
+            tibackupDetailLog->close();
             return;
         }
     }
@@ -126,7 +134,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
     // Execute external script before backup if set
     if(!scriptBeforeBackup.isEmpty() && QFile::exists(scriptBeforeBackup))
     {
-        qDebug() << QString("tiBackupJob::startBackup() -> Script <%1> will be taken as template").arg(scriptBeforeBackup);
+        detailLog << QString("Script <%1> will be taken as template").arg(scriptBeforeBackup) << Qt::endl;
 
         // We replace vars defined in scripts, so we write temporary file and execute it then
         QFile script(scriptBeforeBackup);
@@ -145,18 +153,22 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         tmpScript.setPermissions(QFile::ReadOwner | QFile::ExeOwner);
         tmpScript.close();
 
-        qDebug() << QString("tiBackupJob::startBackup() -> Computed Script <%1> will be executed before backup:").arg(tmpfilename);
-        qDebug() << "------------------------------";
-        qDebug() << tmpSource;
-        qDebug() << "------------------------------";
+        detailLog << QString("Computed Script <%1> will be executed before backup:").arg(tmpfilename) << Qt::endl;
+        detailLog << "------------------------------" << Qt::endl;
+        detailLog << tmpSource << Qt::endl;
+        detailLog << "------------------------------" << Qt::endl;
 
         if(lib.runCommandwithReturnCode(tmpfilename, -1) != 0)
         {
-            bakMessages.append("Script before Backup was not executed properly.");
+            QString msg("Script before Backup was not executed properly.");
+            bakMessages.append(msg);
+            detailLog << msg << Qt::endl;
         }
         else
         {
-            bakMessages.append("Script before Backup was executed properly.");
+            QString msg("Script before Backup was executed properly.");
+            bakMessages.append(msg);
+            detailLog << msg << Qt::endl;
         }
         tmpScript.remove();
     }
@@ -175,7 +187,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
 
         if(save_log == true)
         {
-            qDebug() << "tiBackupJob::startBackup() -> Rsync Log will be archived";
+            detailLog << "Feature: Rsync Log will be archived" << Qt::endl;
             QDateTime currentDate = QDateTime::currentDateTime();
             QString logpathdir = QString("%1/%2").arg(main_settings.getValue("paths/logs").toString(), name);
             QDir logdir(logpathdir);
@@ -188,13 +200,23 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
             log.rsync_path = logpath;
         }
 
-        qDebug() << QString("tiBackupJob::startBackup() -> We backup now %1 to %2").arg(src, dest);
+        detailLog << QString("RSYNC Backup: Backup %1 to %2").arg(src, dest) << Qt::endl;
 
         QDir destdir(dest);
         if(!destdir.exists())
             destdir.mkpath(dest);
 
         log.ret_code = lib.runCommandwithReturnCode(QString("rsync -a %1 \"%2\" \"%3\"").arg(backupFArgs, src, dest), -1);
+        if(log.ret_code != 0)
+        {
+            QString msg("RSYNC Backup failed (see detail log).");
+            detailLog << msg << Qt::endl;
+        }
+        else
+        {
+            QString msg("RSYNC Backup successful.");
+            detailLog << msg << Qt::endl;
+        }
         bakLogs << log;
     }
 
@@ -231,7 +253,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                     tiBackupJobPBSLog log;
                     log.vmid = pbs_groupid;
 
-                    qDebug() << "start backup for id " << pbs_groupid << "path::" << vmdir.path();
+                    detailLog << "PBS Backup: Start backup for id " << pbs_groupid << "path::" << vmdir.path() << Qt::endl;
 
                     // Do additional auth to avoid pbs ticket timeouts
                     pbs->auth(pb->host, pb->port, pb->username, pb->password);
@@ -255,13 +277,12 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                             QJsonObject snap = snapshots[li].toObject();
                             qint64 blastbackup = snap["backup-time"].toInt();
                             QDateTime dt = QDateTime::fromMSecsSinceEpoch(blastbackup * 1000).toTimeSpec(Qt::UTC);
-                            qDebug() << "pbs-last-backup" << pbs_groupid << dt.toString(Qt::ISODate);
+                            detailLog << "Newest backup file for" << pbs_groupid << " from " << dt.toString(Qt::ISODate) << Qt::endl;
 
                             QString vmConf = "";
                             QStringList vmImages;
 
                             QJsonArray files = snap["files"].toArray();
-                            qDebug() << "pbs files to restore" << files;
                             for(int j=0; j < files.count(); j++)
                             {
                                 QRegularExpression re("^(.*?)\\.[^.]*$");
@@ -270,7 +291,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
 
                                 //QString file = files[j].toString();
                                 QString respec = QString("%1/%2").arg(pbs_groupid, dt.toString(Qt::ISODate));
-                                qDebug() << "pbs do file backup restore::" << file << "orig::" << files[j].toObject()["filename"].toString();
+                                detailLog << "Backup restore :: " << file << " orig::" << files[j].toObject()["filename"].toString() << Qt::endl;
 
                                 if(file.endsWith(".conf"))
                                 {
@@ -282,12 +303,14 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 }
                                 else
                                 {
+                                    detailLog << "File " << file << " not needed, skipping" << Qt::endl;
                                     continue;
                                 }
 
                                 // If to be restored file exists delete it because proxmox-backup-client cannot overwrite files
                                 if(QFile::exists(vmdir.path().append("/").append(file)))
                                 {
+                                    detailLog << "File " << file << " already exists on target, deleting" << Qt::endl;
                                     lib.runCommandwithReturnCodePipe(QString("rm -f %1").arg(vmdir.path().append("/").append(file)), -1);
                                 }
 
@@ -305,22 +328,22 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                     {
                                         QString errmsg = QString("Encryption file %1 not found!").arg(pb->keyfile);
                                         log.errmsg.append(errmsg).append(", ");
-                                        qDebug() << errmsg;
+                                        detailLog << errmsg << Qt::endl;
                                     }
                                 }
-                                qDebug() << "Start backup cmd: " << "proxmox-backup-client " << startargs;
+                                detailLog << "Start PBS backup cmd: " << "proxmox-backup-client " << startargs.join(",") << Qt::endl;
                                 p.start("proxmox-backup-client", startargs);
                                 p.waitForStarted(-1);
                                 p.waitForFinished(-1);
                                 if(p.exitCode() == 0)
                                 {
-                                    qDebug() << "Successful backup for " << respec << file << p.readAll();
+                                    detailLog << "Successful backup for " << respec << file << p.readAll() << Qt::endl;
                                 }
                                 else
                                 {
                                     QByteArray err = p.readAll();
                                     log.errmsg.append(err).append(", ");
-                                    qDebug() << "Failed backup for " << respec << file << err;
+                                    detailLog << "Failed backup for " << respec << file << err << Qt::endl;
                                 }
                                 p.close();
                             }
@@ -342,11 +365,15 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 QString vmacmd = QString("vma create /dev/stdout -c %1 %2").arg(vmdir.path().append("/").append(vmConf), images);
                                 if(lib.runCommandwithReturnCodePipe(QString("%1 | zstd -f -3 -T4 -o %2").arg(vmacmd, vmdir.path().append("/").append(outName)), -1) == 0)
                                 {
-                                    log.msg.append(QString("Successful backup, files: %1, archive: %2").arg(vmImages.join(" "), outName));
+                                    QString msg = QString("Successful backup, files: %1, archive: %2").arg(vmImages.join(" "), outName);
+                                    log.msg.append(msg);
+                                    detailLog << msg << Qt::endl;
                                 }
                                 else
                                 {
-                                    log.errmsg.append(QString("Compression or packaging failed, cmd: %1").arg(QString("%1 | zstd -f -3 -T4 -o %2").arg(vmacmd, vmdir.path().append("/").append(outName))));
+                                    QString msg = QString("Compression or packaging failed, cmd: %1").arg(QString("%1 | zstd -f -3 -T4 -o %2").arg(vmacmd, vmdir.path().append("/").append(outName)));
+                                    log.errmsg.append(msg);
+                                    detailLog << msg << Qt::endl;
                                 }
                             }
                             else if(vmType == "ct")
@@ -362,16 +389,22 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 {
                                     if(lib.runCommandwithReturnCode(QString("zstd -f -3 -T4 --rm %1ct.tar -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)), -1) == 0)
                                     {
-                                        log.msg.append(QString("Successful backup, files: %1, archive: %2").arg(vmImages.join(" "), outName));
+                                        QString msg = QString("Successful backup, files: %1, archive: %2").arg(vmImages.join(" "), outName);
+                                        log.msg.append(msg);
+                                        detailLog << msg << Qt::endl;
                                     }
                                     else
                                     {
-                                        log.errmsg.append(QString("Compression failed, cmd: %1").arg(QString("zstd -f -10 --rm %1ct.tar -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName))));
+                                        QString msg = QString("Compression failed, cmd: %1").arg(QString("zstd -f -10 --rm %1ct.tar -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)));
+                                        log.errmsg.append(msg);
+                                        detailLog << msg << Qt::endl;
                                     }
                                 }
                                 else
                                 {
-                                    log.errmsg.append(QString("Packaging failed, cmd: %1").arg(QString("tar -C %1 -cf %2ct.tar .").arg(vmdir.path().append("/").append(vmImages[0]), vmdir.path().append("/"))));
+                                    QString msg = QString("Packaging failed, cmd: %1").arg(QString("tar -C %1 -cf %2ct.tar .").arg(vmdir.path().append("/").append(vmImages[0]), vmdir.path().append("/")));
+                                    log.errmsg.append(msg);
+                                    detailLog << msg << Qt::endl;
                                 }
                             }
 
@@ -383,20 +416,27 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 if(vmType == "ct") {
                                     QDir archive_dir(vmdir.path().append("/").append(image));
                                     archive_dir.removeRecursively();
+                                    detailLog << "Cleanup, remove dir " << vmdir.path().append("/").append(image) << Qt::endl;
                                 }
-                                else
+                                else {
                                     vmdir.remove(vmdir.path().append("/").append(image));
+                                    detailLog << "Cleanup, remove file " << vmdir.path().append("/").append(image) << Qt::endl;
+                                }
                             }
                         }
                         else
                         {
-                            pbsMessages.append(QString("VM-ID %1 has no backups, skipping").arg(pbs_groupid));
+                            QString msg = QString("VM-ID %1 has no backups, skipping").arg(pbs_groupid);
+                            pbsMessages.append(msg);
+                            detailLog << msg << Qt::endl;
                         }
 
                     }
                     else
                     {
-                        pbsMessages.append(QString("PBS datastore listing for %1 not successful").arg(pbs_groupid));
+                        QString msg = QString("PBS datastore listing for %1 not successful").arg(pbs_groupid);
+                        pbsMessages.append(msg);
+                        detailLog << msg << Qt::endl;
                     }
 
                     bakPBSLogs << log;
@@ -404,20 +444,24 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
             }
             else
             {
-                pbsMessages.append(QString("PBS %1 auth not successful").arg(pbs_server_uuid));
+                QString msg = QString("PBS %1 auth not successful").arg(pbs_server_uuid);
+                pbsMessages.append(msg);
+                detailLog << msg << Qt::endl;
             }
             pbs->deleteLater();
         }
         else
         {
-            pbsMessages.append(QString("PBS %1 not found in config").arg(pbs_server_uuid));
+            QString msg = QString("PBS %1 not found in config").arg(pbs_server_uuid);
+            pbsMessages.append(msg);
+            detailLog << msg << Qt::endl;
         }
     }
 
     // Execute external script after backup if set
     if(!scriptAfterBackup.isEmpty() && QFile::exists(scriptAfterBackup))
     {
-        qDebug() << QString("tiBackupJob::startBackup() -> Script <%1> will be taken as template").arg(scriptAfterBackup);
+        detailLog << QString("Run script after backup: Script <%1> will be taken as template").arg(scriptAfterBackup) << Qt::endl;
 
         // We replace vars defined in scripts, so we write temporary file and execute it then
         QFile script(scriptAfterBackup);
@@ -436,18 +480,22 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         tmpScript.setPermissions(QFile::ReadOwner | QFile::ExeOwner);
         tmpScript.close();
 
-        qDebug() << QString("tiBackupJob::startBackup() -> Computed Script <%1> will be executed after backup:").arg(tmpfilename);
-        qDebug() << "------------------------------";
-        qDebug() << tmpSource;
-        qDebug() << "------------------------------";
+        detailLog << QString("Computed Script <%1> will be executed after backup:").arg(tmpfilename) << Qt::endl;
+        detailLog << "------------------------------" << Qt::endl;
+        detailLog << tmpSource << Qt::endl;
+        detailLog << "------------------------------" << Qt::endl;
 
         if(lib.runCommandwithReturnCode(tmpfilename, -1) != 0)
         {
-            bakMessages.append("Script after Backup was not executed properly.");
+            QString msg = QString("Script after Backup was not executed properly.");
+            bakMessages.append(msg);
+            detailLog << msg << Qt::endl;
         }
         else
         {
-            bakMessages.append("Script after Backup was executed properly.");
+            QString msg = QString("Script after Backup was executed properly.");
+            bakMessages.append(msg);
+            detailLog << msg << Qt::endl;
         }
         tmpScript.remove();
     }
@@ -455,7 +503,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
     // We notify the recipients now about the status
     if(notify == true)
     {
-        qDebug() << "tiBackupJob::startBackup() -> We send notification now to " << notifyRecipients;
+        detailLog << "We send notification now to " << notifyRecipients << Qt::endl;
 
         Poco::Net::MailRecipient recipient(Poco::Net::MailRecipient::PRIMARY_RECIPIENT, notifyRecipients.toStdString());
 
@@ -552,23 +600,18 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
             smtp->sendMessage(mail);
             smtp->close();
 
-            qDebug() << "tiBackupJob::startBackup() -> Mail message was send to " << notifyRecipients;
+            detailLog << "tiBackupJob::startBackup() -> Mail message was send successfully to " << notifyRecipients << Qt::endl;
         }
         catch(Poco::Net::SMTPException &e)
         {
-            qWarning() << "tiBackupJob::startBackup() -> Mail message was NOT send. Error occured: " << QString::fromStdString(e.message());
+            detailLog << "tiBackupJob::startBackup() -> Mail message was NOT send. Error occured: " << QString::fromStdString(e.message()) << Qt::endl;
         }
         catch(Poco::Net::HostNotFoundException &e)
         {
-            qWarning() << "tiBackupJob::startBackup() -> Mail message was NOT send. Hostname not found: " << QString::fromStdString(e.message());
+            detailLog << "tiBackupJob::startBackup() -> Mail message was NOT send. Hostname not found: " << QString::fromStdString(e.message()) << Qt::endl;
         }
 
-        /*
-        catch(...)
-        {
-            qDebug() << "tiBackupJob::startBackup() -> Mail message was NOT send. Undefined error occured: ";
-        }
-        */
+        detailLog << "Backup job finished!" << Qt::endl;
 
         if(smtp != 0) delete smtp;
     }

@@ -97,6 +97,10 @@ void tiConfMain::initMainConf()
             conf.sync();
         }
     }
+
+    QString logs_dir = QString("%1/logs/%2").arg(conf_main_dir.absolutePath(), tibackup_config::backup_detail_folder);
+    QDir logsdir_detail_path(logs_dir);
+    logsdir_detail_path.mkpath(logs_dir);
 }
 
 QVariant tiConfMain::getValue(const QString &iniPath)
@@ -112,6 +116,13 @@ void tiConfMain::setValue(const QString &iniPath, const QVariant &val)
 void tiConfMain::sync()
 {
     settings->sync();
+}
+
+QString tiConfMain::getLogsDetailDir()
+{
+    QFileInfo finfo(tibackup_config::file_main);
+    QDir conf_main_dir = finfo.absoluteDir();
+    return QString("%1/logs/%2").arg(conf_main_dir.absolutePath(), tibackup_config::backup_detail_folder);
 }
 
 

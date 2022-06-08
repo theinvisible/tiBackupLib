@@ -86,13 +86,9 @@ void DeviceDisk::readPartitions()
 
        blkid_do_probe(pr);
 
-       qDebug() << "DeviceDisk::readPartitions(): read blkid values for " << dev_name;
-
        blkid_probe_lookup_value(pr, "UUID", &uuid, NULL);
        blkid_probe_lookup_value(pr, "LABEL", &label, NULL);
        blkid_probe_lookup_value(pr, "TYPE", &type, NULL);
-
-       qDebug() << "DeviceDisk::readPartitions(): blkid VALUES::" << uuid << "::" << label << "::" << type;
 
        DeviceDiskPartition part;
        part.name = dev_name;
@@ -119,7 +115,6 @@ DeviceDiskPartition DeviceDisk::getPartitionByUUID(const QString &uuid)
     for (int i=0; i < partitions.count(); i++)
     {
         part = partitions.at(i);
-        qDebug() << "1:" << part.uuid << ":2:" << uuid << ":";
         if(part.uuid == uuid)
             return part;
     }

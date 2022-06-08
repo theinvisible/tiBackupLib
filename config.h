@@ -28,13 +28,14 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 
 namespace tibackup_config
 {
-    static const char __attribute__ ((unused)) *version = "0.7.3";
+    static const char __attribute__ ((unused)) *version = "0.7.6";
     static const char __attribute__ ((unused)) *file_main = "/etc/tibackup/main.conf";
     static const char __attribute__ ((unused)) *mount_root = "/mnt";
     static const char __attribute__ ((unused)) *initd_default = "/etc/init.d/tibackup";
     static const char __attribute__ ((unused)) *api_sock_name = "tibackup";
     static const char __attribute__ ((unused)) *systemd_name = "tibackupd";
     static const QDataStream::Version __attribute__ ((unused)) ipc_version = QDataStream::Qt_5_7;
+    static const char __attribute__ ((unused)) *backup_detail_folder = "backup_detail";
 
     static const char __attribute__ ((unused)) *var_partbackup_dir = "%MNTBACKUPDIR%";
 }
