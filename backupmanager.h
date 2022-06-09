@@ -17,10 +17,13 @@ public:
     enum backupStatus {
         running,
         failed,
-        finished
+        finished,
+        standby
     };
 
     bool startBackup(const QString &name);
+    QHash<QString, backupStatus> *getBackupStatus();
+    backupStatus getBackupStatus(const QString &name);
 
 public slots:
     void onBackupFinished(QString name);

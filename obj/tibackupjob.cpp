@@ -96,20 +96,23 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
 
     QDateTime currentDate = QDateTime::currentDateTime();
     QFile *tibackupDetailLog = new QFile(QString("%1/%2__%3.log").arg(main_settings.getLogsDetailDir(), currentDate.toString("yyyy-MM-dd_HH-mm"), name));
-    tibackupDetailLog->open(QIODevice::WriteOnly | QIODevice::Text);
+    tibackupDetailLog->open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Unbuffered);
 
     QTextStream detailLog(tibackupDetailLog);
     detailLog << QString("Starting backup for %1 at %2 on %3 (%4)").arg(name, currentDate.toString("yyyy-MM-dd_HH-mm"), device, partition_uuid) << "\n";
+    detailLog.flush();
 
     if(delete_add_file_on_dest == true)
     {
         detailLog << "Feature: Additional files will be deleted" << "\n";
+        detailLog.flush();
         backupArg.append("--delete ");
     }
 
     if(compare_via_checksum == true)
     {
         detailLog << "Feature: Checksum comparison enabled" << "\n";
+        detailLog.flush();
         backupArg.append("--checksum ");
     }
 
@@ -117,15 +120,18 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
     {
         deviceMountDir = lib.getMountDir(part);
         detailLog << "Device is already mounted on " << deviceMountDir << "\n";
+        detailLog.flush();
     }
     else
     {
         deviceMountDir = lib.mountPartition(part, this);
         detailLog << "Device was not mounted, mounting on " << deviceMountDir << "\n";
+        detailLog.flush();
 
         if(!lib.isMounted(part))
         {
             detailLog << "Device could not be mounted, aborting" << "\n";
+            detailLog.flush();
             tibackupDetailLog->close();
             return;
         }
@@ -135,6 +141,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
     if(!scriptBeforeBackup.isEmpty() && QFile::exists(scriptBeforeBackup))
     {
         detailLog << QString("Script <%1> will be taken as template").arg(scriptBeforeBackup) << "\n";
+        detailLog.flush();
 
         // We replace vars defined in scripts, so we write temporary file and execute it then
         QFile script(scriptBeforeBackup);
@@ -157,6 +164,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         detailLog << "------------------------------" << "\n";
         detailLog << tmpSource << "\n";
         detailLog << "------------------------------" << "\n";
+        detailLog.flush();
 
         if(lib.runCommandwithReturnCode(tmpfilename, -1) != 0)
         {
@@ -170,6 +178,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
             bakMessages.append(msg);
             detailLog << msg << "\n";
         }
+        detailLog.flush();
         tmpScript.remove();
     }
 
@@ -188,6 +197,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         if(save_log == true)
         {
             detailLog << "Feature: Rsync Log will be archived" << "\n";
+            detailLog.flush();
             QDateTime currentDate = QDateTime::currentDateTime();
             QString logpathdir = QString("%1/%2").arg(main_settings.getValue("paths/logs").toString(), name);
             QDir logdir(logpathdir);
@@ -201,6 +211,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         }
 
         detailLog << QString("RSYNC Backup: Backup %1 to %2").arg(src, dest) << "\n";
+        detailLog.flush();
 
         QDir destdir(dest);
         if(!destdir.exists())
@@ -217,6 +228,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
             QString msg("RSYNC Backup successful.");
             detailLog << msg << "\n";
         }
+        detailLog.flush();
         bakLogs << log;
     }
 
@@ -254,6 +266,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                     log.vmid = pbs_groupid;
 
                     detailLog << "PBS Backup: Start backup for id " << pbs_groupid << "path::" << vmdir.path() << "\n";
+                    detailLog.flush();
 
                     // Do additional auth to avoid pbs ticket timeouts
                     pbs->auth(pb->host, pb->port, pb->username, pb->password);
@@ -278,6 +291,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                             qint64 blastbackup = snap["backup-time"].toInt();
                             QDateTime dt = QDateTime::fromMSecsSinceEpoch(blastbackup * 1000).toTimeSpec(Qt::UTC);
                             detailLog << "Newest backup file for" << pbs_groupid << " from " << dt.toString(Qt::ISODate) << "\n";
+                            detailLog.flush();
 
                             QString vmConf = "";
                             QStringList vmImages;
@@ -292,6 +306,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 //QString file = files[j].toString();
                                 QString respec = QString("%1/%2").arg(pbs_groupid, dt.toString(Qt::ISODate));
                                 detailLog << "Backup restore :: " << file << " orig::" << files[j].toObject()["filename"].toString() << "\n";
+                                detailLog.flush();
 
                                 if(file.endsWith(".conf"))
                                 {
@@ -304,6 +319,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 else
                                 {
                                     detailLog << "File " << file << " not needed, skipping" << "\n";
+                                    detailLog.flush();
                                     continue;
                                 }
 
@@ -311,6 +327,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 if(QFile::exists(vmdir.path().append("/").append(file)))
                                 {
                                     detailLog << "File " << file << " already exists on target, deleting" << "\n";
+                                    detailLog.flush();
                                     lib.runCommandwithReturnCodePipe(QString("rm -f %1").arg(vmdir.path().append("/").append(file)), -1);
                                 }
 
@@ -329,9 +346,11 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                         QString errmsg = QString("Encryption file %1 not found!").arg(pb->keyfile);
                                         log.errmsg.append(errmsg).append(", ");
                                         detailLog << errmsg << "\n";
+                                        detailLog.flush();
                                     }
                                 }
                                 detailLog << "Start PBS backup cmd: " << "proxmox-backup-client " << startargs.join(",") << "\n";
+                                detailLog.flush();
                                 p.start("proxmox-backup-client", startargs);
                                 p.waitForStarted(-1);
                                 p.waitForFinished(-1);
@@ -345,6 +364,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                     log.errmsg.append(err).append(", ");
                                     detailLog << "Failed backup for " << respec << file << err << "\n";
                                 }
+                                detailLog.flush();
                                 p.close();
                             }
 
@@ -375,6 +395,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                     log.errmsg.append(msg);
                                     detailLog << msg << "\n";
                                 }
+                                detailLog.flush();
                             }
                             else if(vmType == "ct")
                             {
@@ -406,6 +427,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                     log.errmsg.append(msg);
                                     detailLog << msg << "\n";
                                 }
+                                detailLog.flush();
                             }
 
                             // Cleanup
@@ -422,6 +444,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                     vmdir.remove(vmdir.path().append("/").append(image));
                                     detailLog << "Cleanup, remove file " << vmdir.path().append("/").append(image) << "\n";
                                 }
+                                detailLog.flush();
                             }
                         }
                         else
@@ -456,12 +479,14 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
             pbsMessages.append(msg);
             detailLog << msg << "\n";
         }
+        detailLog.flush();
     }
 
     // Execute external script after backup if set
     if(!scriptAfterBackup.isEmpty() && QFile::exists(scriptAfterBackup))
     {
         detailLog << QString("Run script after backup: Script <%1> will be taken as template").arg(scriptAfterBackup) << "\n";
+        detailLog.flush();
 
         // We replace vars defined in scripts, so we write temporary file and execute it then
         QFile script(scriptAfterBackup);
@@ -484,6 +509,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         detailLog << "------------------------------" << "\n";
         detailLog << tmpSource << "\n";
         detailLog << "------------------------------" << "\n";
+        detailLog.flush();
 
         if(lib.runCommandwithReturnCode(tmpfilename, -1) != 0)
         {
@@ -497,6 +523,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
             bakMessages.append(msg);
             detailLog << msg << "\n";
         }
+        detailLog.flush();
         tmpScript.remove();
     }
 
@@ -504,6 +531,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
     if(notify == true)
     {
         detailLog << "We send notification now to " << notifyRecipients << "\n";
+        detailLog.flush();
 
         Poco::Net::MailRecipient recipient(Poco::Net::MailRecipient::PRIMARY_RECIPIENT, notifyRecipients.toStdString());
 
@@ -612,6 +640,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         }
 
         detailLog << "Backup job finished!" << "\n";
+        detailLog.flush();
 
         if(smtp != 0) delete smtp;
     }

@@ -207,3 +207,72 @@ ipcClient::STATUS_ANSWER ipcClient::checkHealth()
 
     return ret;
 }
+
+QHash<QString, backupManager::backupStatus> ipcClient::getBackupStatus()
+{
+    QLocalSocket *apiClient = new QLocalSocket(this);
+    apiClient->connectToServer(tibackup_config::api_sock_name);
+    QHash<QString, backupManager::backupStatus> status;
+    if(apiClient->waitForConnected(1000))
+    {
+        QByteArray block;
+        QDataStream out(&block, QIODevice::WriteOnly);
+        out.setVersion(tibackup_config::ipc_version);
+        QHash<tiBackupApi::API_VAR, QString> apiData;
+        apiData[tiBackupApi::API_VAR::API_VAR_CMD] = tiBackupApi::API_CMD::API_CMD_BACKUP_STATUS;
+        out << apiData;
+
+        apiClient->write(block);
+        apiClient->flush();
+
+        apiClient->waitForReadyRead(5000);
+
+        QDataStream in(apiClient);
+        in.setVersion(tibackup_config::ipc_version);
+        in >> status;
+    }
+    else
+    {
+        qWarning() << apiClient->errorString();
+    }
+
+    apiClient->close();
+    apiClient->disconnect();
+
+    return status;
+}
+
+backupManager::backupStatus ipcClient::getBackupStatus(const QString &jobname)
+{
+    QLocalSocket *apiClient = new QLocalSocket(this);
+    apiClient->connectToServer(tibackup_config::api_sock_name);
+    backupManager::backupStatus status = backupManager::backupStatus::standby;
+    if(apiClient->waitForConnected(1000))
+    {
+        QByteArray block;
+        QDataStream out(&block, QIODevice::WriteOnly);
+        out.setVersion(tibackup_config::ipc_version);
+        QHash<tiBackupApi::API_VAR, QString> apiData;
+        apiData[tiBackupApi::API_VAR::API_VAR_CMD] = tiBackupApi::API_CMD::API_CMD_BACKUP_STATUS;
+        apiData[tiBackupApi::API_VAR::API_VAR_BACKUPJOB] = jobname;
+        out << apiData;
+
+        apiClient->write(block);
+        apiClient->flush();
+
+        apiClient->waitForReadyRead(5000);
+
+        QDataStream in(apiClient);
+        in.setVersion(tibackup_config::ipc_version);
+        in >> status;
+    }
+    else
+    {
+        qWarning() << apiClient->errorString();
+    }
+
+    apiClient->close();
+    apiClient->disconnect();
+
+    return status;
+}

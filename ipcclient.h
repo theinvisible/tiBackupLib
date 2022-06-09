@@ -38,6 +38,8 @@ public:
     DeviceDiskPartition getPartitionByUUID(const QString &uuid);
     STATUS_ANSWER mountPartition(const DeviceDiskPartition &part, const tiBackupJob &job);
     STATUS_ANSWER checkHealth();
+    QHash<QString, backupManager::backupStatus> getBackupStatus();
+    backupManager::backupStatus getBackupStatus(const QString &jobname);
 
 private:
     static ipcClient* _instance;

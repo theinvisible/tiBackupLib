@@ -21,13 +21,13 @@ bool backupManager::startBackup(const QString &name)
     backupjobs->readBackupJobs();
     tiBackupJob* job = backupjobs->getJobByName(name);
     if(job == 0) {
-        qDebug() << "backupManager::startBackup() -> Backupjob " << name << " not found";
+        qWarning() << "backupManager::startBackup() -> Backupjob " << name << " not found";
         return false;
     }
 
     if(!backups->contains(name) || (backups->contains(name) and backups->value(name) != backupStatus::running))
     {
-        qDebug() << "backupManager::startBackup() -> Backupjob " << name << " is starting now";
+        qWarning() << "backupManager::startBackup() -> Backupjob " << name << " is starting now";
 
         (*backups)[name] = backupStatus::running;
         job->startBackupThread(this);
@@ -35,10 +35,20 @@ bool backupManager::startBackup(const QString &name)
     }
     else
     {
-        qDebug() << "backupManager::startBackup() -> Backupjob " << name << " is already running, not starting backup";
+        qWarning() << "backupManager::startBackup() -> Backupjob " << name << " is already running, not starting backup";
         return false;
     }
 
+}
+
+QHash<QString, backupManager::backupStatus> *backupManager::getBackupStatus()
+{
+    return backups;
+}
+
+backupManager::backupStatus backupManager::getBackupStatus(const QString &name)
+{
+    return (backups->contains(name)) ? (*backups)[name] : backupStatus::standby;
 }
 
 void backupManager::onBackupFinished(QString name)
