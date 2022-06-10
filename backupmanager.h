@@ -38,6 +38,4 @@ private:
 
 };
 
-QDataStream &operator>>(QDataStream &ds, backupManager::backupStatus &status) ;
-
 #endif // BACKUPMANAGER_H

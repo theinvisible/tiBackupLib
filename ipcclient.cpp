@@ -212,6 +212,7 @@ QHash<QString, backupManager::backupStatus> ipcClient::getBackupStatus()
 {
     QLocalSocket *apiClient = new QLocalSocket(this);
     apiClient->connectToServer(tibackup_config::api_sock_name);
+    QHash<QString, int> tmp;
     QHash<QString, backupManager::backupStatus> status;
     if(apiClient->waitForConnected(1000))
     {
@@ -229,7 +230,7 @@ QHash<QString, backupManager::backupStatus> ipcClient::getBackupStatus()
 
         QDataStream in(apiClient);
         in.setVersion(tibackup_config::ipc_version);
-        in >> status;
+        in >> tmp;
     }
     else
     {
@@ -239,6 +240,12 @@ QHash<QString, backupManager::backupStatus> ipcClient::getBackupStatus()
     apiClient->close();
     apiClient->disconnect();
 
+    QHashIterator<QString, int> i(tmp);
+    while (i.hasNext()) {
+        i.next();
+        status.insert(i.key(), static_cast<backupManager::backupStatus>(i.value()));
+    }
+
     return status;
 }
 
@@ -246,7 +253,7 @@ backupManager::backupStatus ipcClient::getBackupStatus(const QString &jobname)
 {
     QLocalSocket *apiClient = new QLocalSocket(this);
     apiClient->connectToServer(tibackup_config::api_sock_name);
-    backupManager::backupStatus status = backupManager::backupStatus::standby;
+    int status = backupManager::backupStatus::standby;
     if(apiClient->waitForConnected(1000))
     {
         QByteArray block;
@@ -274,5 +281,5 @@ backupManager::backupStatus ipcClient::getBackupStatus(const QString &jobname)
     apiClient->close();
     apiClient->disconnect();
 
-    return status;
+    return static_cast<backupManager::backupStatus>(status);
 }

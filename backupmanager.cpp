@@ -55,10 +55,3 @@ void backupManager::onBackupFinished(QString name)
 {
     (*backups)[name] = backupStatus::finished;
 }
-
-QDataStream &operator>>(QDataStream &ds, backupManager::backupStatus &status)
-{
-    ds >> status;
-
-    return ds;
-}
