@@ -639,7 +639,8 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
             detailLog << "tiBackupJob::startBackup() -> Mail message was NOT send. Hostname not found: " << QString::fromStdString(e.message()) << "\n";
         }
 
-        detailLog << "Backup job finished!" << "\n";
+        QDateTime currentFinishDate = QDateTime::currentDateTime();
+        detailLog << QString("Backup job finished at %1!").arg(currentFinishDate.toString("yyyy-MM-dd_HH-mm")) << "\n";
         detailLog.flush();
 
         if(smtp != 0) delete smtp;

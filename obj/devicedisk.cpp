@@ -74,6 +74,9 @@ void DeviceDisk::readPartitions()
 
        sprintf(dev_name, "%s%d", devname.toStdString().c_str(), (i+1));
 
+       if(pr != NULL)
+           blkid_free_probe(pr);
+
        pr = blkid_new_probe_from_filename(dev_name);
        if(pr == NULL)
        {
