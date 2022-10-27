@@ -25,7 +25,7 @@ bool backupManager::startBackup(const QString &name)
         return false;
     }
 
-    if(!backups->contains(name) || (backups->contains(name) and backups->value(name) != backupStatus::running))
+    if(!backups->contains(name) || (backups->contains(name) && backups->value(name) != backupStatus::running))
     {
         qWarning() << "backupManager::startBackup() -> Backupjob " << name << " is starting now";
 

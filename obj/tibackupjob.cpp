@@ -55,14 +55,14 @@ void tiBackupJob::startBackup()
 {
     if(partition_uuid.isEmpty())
     {
-        qWarning() << "tiBackupJob::startBackup() -> Partition-UUID is not set";
+        qWarning() << QString("tiBackupJob::startBackup() -> Partition-UUID for Backupjob %1 is not set").arg(name);
         return;
     }
 
     DeviceDiskPartition part = TiBackupLib::getPartitionByUUID(partition_uuid);
     if(part.name.isEmpty())
     {
-        qWarning() << "tiBackupJob::startBackup() -> Disk for BackupJob ist not attached, aborting";
+        qWarning() << QString("tiBackupJob::startBackup() -> Disk for BackupJob %1 is not attached, aborting").arg(name);
         return;
     }
 
@@ -265,7 +265,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                     tiBackupJobPBSLog log;
                     log.vmid = pbs_groupid;
 
-                    detailLog << "PBS Backup: Start backup for id " << pbs_groupid << "path::" << vmdir.path() << "\n";
+                    detailLog << "PBS Backup: Start backup for id " << pbs_groupid << " to path " << vmdir.path() << "\n";
                     detailLog.flush();
 
                     // Do additional auth to avoid pbs ticket timeouts
@@ -381,6 +381,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 // Cleanup old backups
                                 lib.runCommandwithReturnCodePipe(QString("rm -f %1vzdump-qemu-*").arg(vmdir.path().append("/")), -1);
 
+                                detailLog << "Start compressing VM\n";
                                 QString outName = QString("vzdump-qemu-%1-%2.vma.zst").arg(vmID, dt.toString("yyyy_MM_dd-hh_mm_ss"));
                                 QString vmacmd = QString("vma create /dev/stdout -c %1 %2").arg(vmdir.path().append("/").append(vmConf), images);
                                 if(lib.runCommandwithReturnCodePipe(QString("%1 | zstd -f -3 -T4 -o %2").arg(vmacmd, vmdir.path().append("/").append(outName)), -1) == 0)
@@ -406,6 +407,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 // Cleanup old backups
                                 lib.runCommandwithReturnCodePipe(QString("rm -f %1vzdump-lxc-*").arg(vmdir.path().append("/")), -1);
 
+                                detailLog << "Start compressing CT\n";
                                 if(lib.runCommandwithReturnCode(QString("tar -C %1 -cf %2ct.tar .").arg(vmdir.path().append("/").append(vmImages[0]), vmdir.path().append("/")), -1) == 0)
                                 {
                                     if(lib.runCommandwithReturnCode(QString("zstd -f -3 -T4 --rm %1ct.tar -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)), -1) == 0)
