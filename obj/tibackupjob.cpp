@@ -235,249 +235,262 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
     // Do PBS backup if enabled
     if(pbs)
     {
-        tiConfPBServers *pbsconf = tiConfPBServers::instance();
-        PBServer *pb = pbsconf->getItemByUuid(pbs_server_uuid);
-        if(pb != 0)
+        // Check if /dev/stdout is a symlink, needed for PBS Backups
+        QFileInfo finfo_stdout("/dev/stdout");
+        if(finfo_stdout.isSymLink())
         {
-            pbsClient *pbs = pbsClient::instanceUnique();
-            HttpStatus::Code status = pbs->auth(pb->host, pb->port, pb->username, pb->password);
-            if(status == HttpStatus::Code::OK)
+            tiConfPBServers *pbsconf = tiConfPBServers::instance();
+            PBServer *pb = pbsconf->getItemByUuid(pbs_server_uuid);
+            if(pb != 0)
             {
-                // Create process environment for proxmox-backup-client
-                QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-                env.insert("PBS_REPOSITORY", QString("%1@%2:%3").arg(pb->username, pb->host, pbs_server_storage));
-                env.insert("PBS_PASSWORD", pb->password);
-                env.insert("PBS_FINGERPRINT", pb->fingerprint);
-                env.insert("PROXMOX_OUTPUT_FORMAT", "json");
-                if(!pb->keypass.isEmpty())
-                    env.insert("PBS_ENCRYPTION_PASSWORD", pb->keypass);
-
-                QListIterator<QString> pbs_items(pbs_backup_ids);
-                while(pbs_items.hasNext())
+                pbsClient *pbs = pbsClient::instanceUnique();
+                HttpStatus::Code status = pbs->auth(pb->host, pb->port, pb->username, pb->password);
+                if(status == HttpStatus::Code::OK)
                 {
-                    QString pbs_groupid = pbs_items.next();
-                    QList<QString> pbs_id = pbs_groupid.split("/");
-                    QString vmType = pbs_id[0];
-                    QString vmID = pbs_id[1];
-                    QDir vmdir(QString("%1/%2").arg(TiBackupLib::convertGeneric2Path(pbs_dest_folder, deviceMountDir), pbs_id[1]));
-                    vmdir.mkpath(vmdir.path());
+                    // Create process environment for proxmox-backup-client
+                    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+                    env.insert("PBS_REPOSITORY", QString("%1@%2:%3").arg(pb->username, pb->host, pbs_server_storage));
+                    env.insert("PBS_PASSWORD", pb->password);
+                    env.insert("PBS_FINGERPRINT", pb->fingerprint);
+                    env.insert("PROXMOX_OUTPUT_FORMAT", "json");
+                    if(!pb->keypass.isEmpty())
+                        env.insert("PBS_ENCRYPTION_PASSWORD", pb->keypass);
 
-                    tiBackupJobPBSLog log;
-                    log.vmid = pbs_groupid;
-
-                    detailLog << "PBS Backup: Start backup for id " << pbs_groupid << " to path " << vmdir.path() << "\n";
-                    detailLog.flush();
-
-                    // Do additional auth to avoid pbs ticket timeouts
-                    pbs->auth(pb->host, pb->port, pb->username, pb->password);
-                    pbsClient::HttpResponse ret = pbs->getDatastoreSnapshots(pbs_server_storage, pbs_id[1], pbs_id[0]);
-                    if(ret.status == HttpStatus::Code::OK)
+                    QListIterator<QString> pbs_items(pbs_backup_ids);
+                    while(pbs_items.hasNext())
                     {
-                        QJsonArray snapshots = ret.data.object()["data"].toArray();
-                        if(snapshots.count() > 0)
+                        QString pbs_groupid = pbs_items.next();
+                        QList<QString> pbs_id = pbs_groupid.split("/");
+                        QString vmType = pbs_id[0];
+                        QString vmID = pbs_id[1];
+                        QDir vmdir(QString("%1/%2").arg(TiBackupLib::convertGeneric2Path(pbs_dest_folder, deviceMountDir), pbs_id[1]));
+                        vmdir.mkpath(vmdir.path());
+
+                        tiBackupJobPBSLog log;
+                        log.vmid = pbs_groupid;
+
+                        detailLog << "PBS Backup: Start backup for id " << pbs_groupid << " to path " << vmdir.path() << "\n";
+                        detailLog.flush();
+
+                        // Do additional auth to avoid pbs ticket timeouts
+                        pbs->auth(pb->host, pb->port, pb->username, pb->password);
+                        pbsClient::HttpResponse ret = pbs->getDatastoreSnapshots(pbs_server_storage, pbs_id[1], pbs_id[0]);
+                        if(ret.status == HttpStatus::Code::OK)
                         {
-                            // Get last backup
-                            int lb = 0, li = 0;
-                            for(int i=0; i < snapshots.count(); i++)
+                            QJsonArray snapshots = ret.data.object()["data"].toArray();
+                            if(snapshots.count() > 0)
                             {
-                                QJsonObject snap = snapshots[i].toObject();
-                                if(snap["backup-time"].toInt() > lb) {
-                                    li = i;
-                                    lb = snap["backup-time"].toInt();
+                                // Get last backup
+                                int lb = 0, li = 0;
+                                for(int i=0; i < snapshots.count(); i++)
+                                {
+                                    QJsonObject snap = snapshots[i].toObject();
+                                    if(snap["backup-time"].toInt() > lb) {
+                                        li = i;
+                                        lb = snap["backup-time"].toInt();
+                                    }
                                 }
-                            }
 
-                            QJsonObject snap = snapshots[li].toObject();
-                            qint64 blastbackup = snap["backup-time"].toInt();
-                            QDateTime dt = QDateTime::fromMSecsSinceEpoch(blastbackup * 1000).toTimeSpec(Qt::UTC);
-                            detailLog << "Newest backup file for" << pbs_groupid << " from " << dt.toString(Qt::ISODate) << "\n";
-                            detailLog.flush();
-
-                            QString vmConf = "";
-                            QStringList vmImages;
-
-                            QJsonArray files = snap["files"].toArray();
-                            for(int j=0; j < files.count(); j++)
-                            {
-                                QRegularExpression re("^(.*?)\\.[^.]*$");
-                                QRegularExpressionMatch match = re.match(files[j].toObject()["filename"].toString());
-                                QString file = match.captured(1);
-
-                                //QString file = files[j].toString();
-                                QString respec = QString("%1/%2").arg(pbs_groupid, dt.toString(Qt::ISODate));
-                                detailLog << "Backup restore :: " << file << " orig::" << files[j].toObject()["filename"].toString() << "\n";
+                                QJsonObject snap = snapshots[li].toObject();
+                                qint64 blastbackup = snap["backup-time"].toInt();
+                                QDateTime dt = QDateTime::fromMSecsSinceEpoch(blastbackup * 1000).toTimeSpec(Qt::UTC);
+                                detailLog << "Newest backup file for" << pbs_groupid << " from " << dt.toString(Qt::ISODate) << "\n";
                                 detailLog.flush();
 
-                                if(file.endsWith(".conf"))
-                                {
-                                    vmConf = file;
-                                }
-                                else if(file.endsWith(".pxar") || file.endsWith(".img"))
-                                {
-                                    vmImages << file;
-                                }
-                                else
-                                {
-                                    detailLog << "File " << file << " not needed, skipping" << "\n";
-                                    detailLog.flush();
-                                    continue;
-                                }
+                                QString vmConf = "";
+                                QStringList vmImages;
 
-                                // If to be restored file exists delete it because proxmox-backup-client cannot overwrite files
-                                if(QFile::exists(vmdir.path().append("/").append(file)))
+                                QJsonArray files = snap["files"].toArray();
+                                for(int j=0; j < files.count(); j++)
                                 {
-                                    detailLog << "File " << file << " already exists on target, deleting" << "\n";
-                                    detailLog.flush();
-                                    lib.runCommandwithReturnCodePipe(QString("rm -f %1").arg(vmdir.path().append("/").append(file)), -1);
-                                }
+                                    QRegularExpression re("^(.*?)\\.[^.]*$");
+                                    QRegularExpressionMatch match = re.match(files[j].toObject()["filename"].toString());
+                                    QString file = match.captured(1);
 
-                                QProcess p;
-                                p.setProcessEnvironment(env);
-                                p.setProcessChannelMode(QProcess::MergedChannels);
-                                QStringList startargs = QStringList() << "restore" << respec << file << vmdir.path().append("/").append(file);
-                                if(!pb->keyfile.isEmpty())
-                                {
-                                    if(QFile::exists(pb->keyfile))
+                                    //QString file = files[j].toString();
+                                    QString respec = QString("%1/%2").arg(pbs_groupid, dt.toString(Qt::ISODate));
+                                    detailLog << "Backup restore :: " << file << " orig::" << files[j].toObject()["filename"].toString() << "\n";
+                                    detailLog.flush();
+
+                                    if(file.endsWith(".conf"))
                                     {
-                                        startargs << "--keyfile" << pb->keyfile;
+                                        vmConf = file;
+                                    }
+                                    else if(file.endsWith(".pxar") || file.endsWith(".img"))
+                                    {
+                                        vmImages << file;
                                     }
                                     else
                                     {
-                                        QString errmsg = QString("Encryption file %1 not found!").arg(pb->keyfile);
-                                        log.errmsg.append(errmsg).append(", ");
-                                        detailLog << errmsg << "\n";
+                                        detailLog << "File " << file << " not needed, skipping" << "\n";
                                         detailLog.flush();
+                                        continue;
                                     }
-                                }
-                                detailLog << "Start PBS backup cmd: " << "proxmox-backup-client " << startargs.join(",") << "\n";
-                                detailLog.flush();
-                                p.start("proxmox-backup-client", startargs);
-                                p.waitForStarted(-1);
-                                p.waitForFinished(-1);
-                                if(p.exitCode() == 0)
-                                {
-                                    detailLog << "Successful backup for " << respec << file << p.readAll() << "\n";
-                                }
-                                else
-                                {
-                                    QByteArray err = p.readAll();
-                                    log.errmsg.append(err).append(", ");
-                                    detailLog << "Failed backup for " << respec << file << err << "\n";
-                                }
-                                detailLog.flush();
-                                p.close();
-                            }
 
-                            // Package VM depending on type
-                            if(vmType == "vm")
-                            {
-                                QString images;
-                                for(int k=0; k < vmImages.count(); k++)
-                                {
-                                    QString devname = vmImages[k].split(".")[0];
-                                    images = images.append(devname).append("=").append(vmdir.path().append("/")).append(vmImages[k]).append(" ");
-                                }
-
-                                // Cleanup old backups
-                                lib.runCommandwithReturnCodePipe(QString("rm -f %1vzdump-qemu-*").arg(vmdir.path().append("/")), -1);
-
-                                detailLog << "Start compressing VM\n";
-                                QString outName = QString("vzdump-qemu-%1-%2.vma.zst").arg(vmID, dt.toString("yyyy_MM_dd-hh_mm_ss"));
-                                QString vmacmd = QString("vma create /dev/stdout -c %1 %2").arg(vmdir.path().append("/").append(vmConf), images);
-                                if(lib.runCommandwithReturnCodePipe(QString("%1 | zstd -f -3 -T4 -o %2").arg(vmacmd, vmdir.path().append("/").append(outName)), -1) == 0)
-                                {
-                                    QString msg = QString("Successful backup, files: %1, archive: %2").arg(vmImages.join(" "), outName);
-                                    log.msg.append(msg);
-                                    detailLog << msg << "\n";
-                                }
-                                else
-                                {
-                                    QString msg = QString("Compression or packaging failed, cmd: %1").arg(QString("%1 | zstd -f -3 -T4 -o %2").arg(vmacmd, vmdir.path().append("/").append(outName)));
-                                    log.errmsg.append(msg);
-                                    detailLog << msg << "\n";
-                                }
-                                detailLog.flush();
-                            }
-                            else if(vmType == "ct")
-                            {
-                                QString outName = QString("vzdump-lxc-%1-%2.tar.zst").arg(vmID, dt.toString("yyyy_MM_dd-hh_mm_ss"));
-                                vmdir.mkpath(vmdir.path().append("/").append(vmImages[0]).append("/etc/vzdump/"));
-                                QFile::copy(vmdir.path().append("/").append(vmConf), vmdir.path().append("/").append(vmImages[0]).append("/etc/vzdump/").append(vmConf));
-
-                                // Cleanup old backups
-                                lib.runCommandwithReturnCodePipe(QString("rm -f %1vzdump-lxc-*").arg(vmdir.path().append("/")), -1);
-
-                                detailLog << "Start compressing CT\n";
-                                if(lib.runCommandwithReturnCode(QString("tar -C %1 -cf %2ct.tar .").arg(vmdir.path().append("/").append(vmImages[0]), vmdir.path().append("/")), -1) == 0)
-                                {
-                                    if(lib.runCommandwithReturnCode(QString("zstd -f -3 -T4 --rm %1ct.tar -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)), -1) == 0)
+                                    // If to be restored file exists delete it because proxmox-backup-client cannot overwrite files
+                                    if(QFile::exists(vmdir.path().append("/").append(file)))
                                     {
-                                        QString msg = QString("Successful backup, files: %1, archive: %2").arg(vmImages.join(" "), outName);
+                                        detailLog << "File " << file << " already exists on target, deleting" << "\n";
+                                        detailLog.flush();
+                                        lib.runCommandwithReturnCodePipe(QString("rm -f %1").arg(vmdir.path().append("/").append(file)), -1);
+                                    }
+
+                                    QProcess p;
+                                    p.setProcessEnvironment(env);
+                                    p.setProcessChannelMode(QProcess::MergedChannels);
+                                    QStringList startargs = QStringList() << "restore" << respec << file << vmdir.path().append("/").append(file);
+                                    if(!pb->keyfile.isEmpty())
+                                    {
+                                        if(QFile::exists(pb->keyfile))
+                                        {
+                                            startargs << "--keyfile" << pb->keyfile;
+                                        }
+                                        else
+                                        {
+                                            QString errmsg = QString("Encryption file %1 not found!").arg(pb->keyfile);
+                                            log.errmsg.append(errmsg).append(", ");
+                                            detailLog << errmsg << "\n";
+                                            detailLog.flush();
+                                        }
+                                    }
+                                    detailLog << "Start PBS backup cmd: " << "proxmox-backup-client " << startargs.join(",") << "\n";
+                                    detailLog.flush();
+                                    p.start("proxmox-backup-client", startargs);
+                                    p.waitForStarted(-1);
+                                    p.waitForFinished(-1);
+                                    if(p.exitCode() == 0)
+                                    {
+                                        detailLog << "Successful backup for " << respec << file << p.readAll() << "\n";
+                                    }
+                                    else
+                                    {
+                                        QByteArray err = p.readAll();
+                                        log.errmsg.append(err).append(", ");
+                                        detailLog << "Failed backup for " << respec << file << err << "\n";
+                                    }
+                                    detailLog.flush();
+                                    p.close();
+                                }
+
+                                // Package VM depending on type
+                                if(vmType == "vm")
+                                {
+                                    QString images;
+                                    for(int k=0; k < vmImages.count(); k++)
+                                    {
+                                        QString devname = vmImages[k].split(".")[0];
+                                        images = images.append(devname).append("=").append(vmdir.path().append("/")).append(vmImages[k]).append(" ");
+                                    }
+
+                                    // Cleanup old backups
+                                    lib.runCommandwithReturnCodePipe(QString("rm -f %1vzdump-qemu-*").arg(vmdir.path().append("/")), -1);
+
+                                    detailLog << "Start compressing VM\n";
+                                    QString outName = QString("vzdump-qemu-%1-%2.vma.zst").arg(vmID, dt.toString("yyyy_MM_dd-hh_mm_ss"));
+                                    QString vmacmd = QString("vma create /dev/stdout -c %1 %2").arg(vmdir.path().append("/").append(vmConf), images);
+                                    QString vmazstdcmd = QString("%1 | zstd -f -3 -T4 -o %2").arg(vmacmd, vmdir.path().append("/").append(outName));
+                                    detailLog << "Execute VMA-ZStd CMD: " << vmazstdcmd << "\n";
+                                    if(lib.runCommandwithReturnCodePipe(vmazstdcmd, -1) == 0)
+                                    {
+                                        QFileInfo outInfo(vmdir.path().append("/").append(outName));
+                                        QString msg = QString("Successful backup, files: %1, archive: %2 (Size: %3GB)").arg(vmImages.join(" "), outName).arg(QString::number(outInfo.size()/1024/1024/1024, 'f', 2));
                                         log.msg.append(msg);
                                         detailLog << msg << "\n";
                                     }
                                     else
                                     {
-                                        QString msg = QString("Compression failed, cmd: %1").arg(QString("zstd -f -10 --rm %1ct.tar -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)));
+                                        QString msg = QString("Compression or packaging failed, cmd: %1").arg(QString("%1 | zstd -f -3 -T4 -o %2").arg(vmacmd, vmdir.path().append("/").append(outName)));
                                         log.errmsg.append(msg);
                                         detailLog << msg << "\n";
                                     }
+                                    detailLog.flush();
                                 }
-                                else
+                                else if(vmType == "ct")
                                 {
-                                    QString msg = QString("Packaging failed, cmd: %1").arg(QString("tar -C %1 -cf %2ct.tar .").arg(vmdir.path().append("/").append(vmImages[0]), vmdir.path().append("/")));
-                                    log.errmsg.append(msg);
-                                    detailLog << msg << "\n";
+                                    QString outName = QString("vzdump-lxc-%1-%2.tar.zst").arg(vmID, dt.toString("yyyy_MM_dd-hh_mm_ss"));
+                                    vmdir.mkpath(vmdir.path().append("/").append(vmImages[0]).append("/etc/vzdump/"));
+                                    QFile::copy(vmdir.path().append("/").append(vmConf), vmdir.path().append("/").append(vmImages[0]).append("/etc/vzdump/").append(vmConf));
+
+                                    // Cleanup old backups
+                                    lib.runCommandwithReturnCodePipe(QString("rm -f %1vzdump-lxc-*").arg(vmdir.path().append("/")), -1);
+
+                                    detailLog << "Start compressing CT\n";
+                                    if(lib.runCommandwithReturnCode(QString("tar -C %1 -cf %2ct.tar .").arg(vmdir.path().append("/").append(vmImages[0]), vmdir.path().append("/")), -1) == 0)
+                                    {
+                                        if(lib.runCommandwithReturnCode(QString("zstd -f -3 -T4 --rm %1ct.tar -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)), -1) == 0)
+                                        {
+                                            QFileInfo outInfo(vmdir.path().append("/").append(outName));
+                                            QString msg = QString("Successful backup, files: %1, archive: %2 (Size: %3GB)").arg(vmImages.join(" "), outName).arg(QString::number(outInfo.size()/1024/1024/1024, 'f', 2));
+                                            log.msg.append(msg);
+                                            detailLog << msg << "\n";
+                                        }
+                                        else
+                                        {
+                                            QString msg = QString("Compression failed, cmd: %1").arg(QString("zstd -f -10 --rm %1ct.tar -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)));
+                                            log.errmsg.append(msg);
+                                            detailLog << msg << "\n";
+                                        }
+                                    }
+                                    else
+                                    {
+                                        QString msg = QString("Packaging failed, cmd: %1").arg(QString("tar -C %1 -cf %2ct.tar .").arg(vmdir.path().append("/").append(vmImages[0]), vmdir.path().append("/")));
+                                        log.errmsg.append(msg);
+                                        detailLog << msg << "\n";
+                                    }
+                                    detailLog.flush();
                                 }
-                                detailLog.flush();
+
+                                // Cleanup
+                                vmdir.remove(vmdir.path().append("/").append(vmConf));
+                                for(int l=0; l < vmImages.count(); l++)
+                                {
+                                    QString image = vmImages[l];
+                                    if(vmType == "ct") {
+                                        QDir archive_dir(vmdir.path().append("/").append(image));
+                                        archive_dir.removeRecursively();
+                                        detailLog << "Cleanup, remove dir " << vmdir.path().append("/").append(image) << "\n";
+                                    }
+                                    else {
+                                        vmdir.remove(vmdir.path().append("/").append(image));
+                                        detailLog << "Cleanup, remove file " << vmdir.path().append("/").append(image) << "\n";
+                                    }
+                                    detailLog.flush();
+                                }
+                            }
+                            else
+                            {
+                                QString msg = QString("VM-ID %1 has no backups, skipping").arg(pbs_groupid);
+                                pbsMessages.append(msg);
+                                detailLog << msg << "\n";
                             }
 
-                            // Cleanup
-                            vmdir.remove(vmdir.path().append("/").append(vmConf));
-                            for(int l=0; l < vmImages.count(); l++)
-                            {
-                                QString image = vmImages[l];
-                                if(vmType == "ct") {
-                                    QDir archive_dir(vmdir.path().append("/").append(image));
-                                    archive_dir.removeRecursively();
-                                    detailLog << "Cleanup, remove dir " << vmdir.path().append("/").append(image) << "\n";
-                                }
-                                else {
-                                    vmdir.remove(vmdir.path().append("/").append(image));
-                                    detailLog << "Cleanup, remove file " << vmdir.path().append("/").append(image) << "\n";
-                                }
-                                detailLog.flush();
-                            }
                         }
                         else
                         {
-                            QString msg = QString("VM-ID %1 has no backups, skipping").arg(pbs_groupid);
+                            QString msg = QString("PBS datastore listing for %1 not successful").arg(pbs_groupid);
                             pbsMessages.append(msg);
                             detailLog << msg << "\n";
                         }
 
+                        bakPBSLogs << log;
                     }
-                    else
-                    {
-                        QString msg = QString("PBS datastore listing for %1 not successful").arg(pbs_groupid);
-                        pbsMessages.append(msg);
-                        detailLog << msg << "\n";
-                    }
-
-                    bakPBSLogs << log;
                 }
+                else
+                {
+                    QString msg = QString("PBS %1 auth not successful").arg(pbs_server_uuid);
+                    pbsMessages.append(msg);
+                    detailLog << msg << "\n";
+                }
+                pbs->deleteLater();
             }
             else
             {
-                QString msg = QString("PBS %1 auth not successful").arg(pbs_server_uuid);
+                QString msg = QString("PBS %1 not found in config").arg(pbs_server_uuid);
                 pbsMessages.append(msg);
                 detailLog << msg << "\n";
             }
-            pbs->deleteLater();
-        }
-        else
-        {
-            QString msg = QString("PBS %1 not found in config").arg(pbs_server_uuid);
+        } else {
+            QString msg = QString("File /dev/stdout is not a symlink, system integrity error! Cannot start PBS backup!");
             pbsMessages.append(msg);
             detailLog << msg << "\n";
         }

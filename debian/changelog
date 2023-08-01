@@ -1,3 +1,9 @@
+tibackuplib (0.7.8-1) precise; urgency=low
+
+  * For changelog see git commits
+
+ -- Rene Hadler <rene@iksdeh.at>  Tue, 1 Aug 2022 11:05:00 +0100
+
 tibackuplib (0.7.7-2) precise; urgency=low
 
   * For changelog see git commits
