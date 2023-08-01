@@ -1,6 +1,7 @@
 # Defines stages which are to be executed
 stages:  
   - build
+  - update_repo
 
 .build_template: &build_template_def
   before_script:
@@ -338,3 +339,15 @@ build-debian-11-64:
 
   only:
     - tags
+
+  # Stage "ubuntu"
+update_repo-dev:  
+  stage: update_repo
+  script:
+    - update_build_dev
+
+  tags:
+    - build-ubuntu-2204-64
+
+  only:
+    - master
