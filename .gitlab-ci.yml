@@ -340,7 +340,6 @@ build-debian-11-64:
   only:
     - tags
 
-  # Stage "ubuntu"
 update_repo-dev:  
   stage: update_repo
   script:
@@ -351,3 +350,14 @@ update_repo-dev:
 
   only:
     - master
+
+update_repo-release:  
+  stage: update_repo
+  script:
+    - update_build_release
+
+  tags:
+    - build-ubuntu-2204-64
+
+  only:
+    - tags
