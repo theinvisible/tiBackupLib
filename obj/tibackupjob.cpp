@@ -300,6 +300,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 QString vmConf = "";
                                 QStringList vmImages;
 
+                                bool errDownloadFiles = false;
                                 QJsonArray files = snap["files"].toArray();
                                 for(int j=0; j < files.count(); j++)
                                 {
@@ -351,6 +352,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                             log.errmsg.append(errmsg).append(", ");
                                             detailLog << errmsg << "\n";
                                             detailLog.flush();
+                                            errDownloadFiles = true;
                                         }
                                     }
                                     detailLog << "Start PBS backup cmd: " << "proxmox-backup-client " << startargs.join(",") << "\n";
@@ -367,9 +369,19 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                         QByteArray err = p.readAll();
                                         log.errmsg.append(err).append(", ");
                                         detailLog << "Failed backup for " << respec << file << err << "\n";
+                                        errDownloadFiles = true;
                                     }
                                     detailLog.flush();
                                     p.close();
+                                }
+
+                                // Check if download is success, otherwise skip this VM
+                                if(errDownloadFiles) {
+                                    QString errmsg("Error processing proxmox-backup-client, check logs for details!");
+                                    log.errmsg.append(errmsg).append(", ");
+                                    detailLog << errmsg << "\n";
+                                    detailLog.flush();
+                                    continue;
                                 }
 
                                 // Package VM depending on type
