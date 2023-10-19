@@ -405,9 +405,15 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                     if(lib.runCommandwithReturnCodePipe(vmazstdcmd, -1) == 0)
                                     {
                                         QFileInfo outInfo(vmdir.path().append("/").append(outName));
-                                        QString msg = QString("Successful backup, files: %1, archive: %2 (Size: %3GB)").arg(vmImages.join(" "), outName).arg(QString::number(outInfo.size()/1024/1024/1024, 'f', 2));
-                                        log.msg.append(msg);
-                                        detailLog << msg << "\n";
+                                        if(outInfo.size() > 1000) {
+                                            QString msg = QString("Successful backup, files: %1, archive: %2 (Size: %3GB)").arg(vmImages.join(" "), outName).arg(QString::number(outInfo.size()/1024/1024/1024, 'f', 2));
+                                            log.msg.append(msg);
+                                            detailLog << msg << "\n";
+                                        } else {
+                                            QString msg = QString("Failed backup, compression or packaging failed, cmd: %1").arg(QString("%1 | zstd -f -3 -T4 -o %2").arg(vmacmd, vmdir.path().append("/").append(outName)));
+                                            log.errmsg.append(msg);
+                                            detailLog << msg << "\n";
+                                        }
                                     }
                                     else
                                     {
@@ -432,9 +438,15 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                         if(lib.runCommandwithReturnCode(QString("zstd -f -3 -T4 --rm %1ct.tar -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)), -1) == 0)
                                         {
                                             QFileInfo outInfo(vmdir.path().append("/").append(outName));
-                                            QString msg = QString("Successful backup, files: %1, archive: %2 (Size: %3GB)").arg(vmImages.join(" "), outName).arg(QString::number(outInfo.size()/1024/1024/1024, 'f', 2));
-                                            log.msg.append(msg);
-                                            detailLog << msg << "\n";
+                                            if(outInfo.size() > 1000) {
+                                                QString msg = QString("Successful backup, files: %1, archive: %2 (Size: %3GB)").arg(vmImages.join(" "), outName).arg(QString::number(outInfo.size()/1024/1024/1024, 'f', 2));
+                                                log.msg.append(msg);
+                                                detailLog << msg << "\n";
+                                            } else {
+                                                QString msg = QString("Failed backup, compression failed, cmd: %1").arg(QString("zstd -f -10 --rm %1ct.tar -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)));
+                                                log.errmsg.append(msg);
+                                                detailLog << msg << "\n";
+                                            }
                                         }
                                         else
                                         {
