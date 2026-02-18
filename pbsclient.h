@@ -22,34 +22,18 @@ private:
     QNetworkAccessManager *nam;
 
     explicit pbsClient(QObject *parent = nullptr);
-    static pbsClient* _instance;
-
-    class CGuard
-    {
-    public:
-       ~CGuard()
-       {
-          if( NULL != pbsClient::_instance )
-          {
-             delete pbsClient::_instance;
-             pbsClient::_instance = NULL;
-          }
-       }
-    };
 
     QNetworkRequest getNRAuth(const QString &url);
 
 public:
     static pbsClient* instance()
     {
-       static CGuard g;
-       if (!_instance)
-          _instance = new pbsClient();
-       return _instance;
+        static pbsClient* inst = new pbsClient(nullptr);
+        return inst;
     }
     static pbsClient* instanceUnique()
     {
-        return new pbsClient();
+        return new pbsClient(nullptr);
     }
     struct HttpResponse {
         HttpStatus::Code status;

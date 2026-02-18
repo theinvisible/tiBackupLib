@@ -24,12 +24,9 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 #include "tibackupdiskobserver.h"
 
 #include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <stddef.h>
 #include <errno.h>
-#include <sys/time.h> //debug -> remove me
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -47,37 +44,37 @@ tiBackupDiskObserver::tiBackupDiskObserver(QObject *parent) : QObject(parent)
 void tiBackupDiskObserver::start()
 {
     struct udev *udev;
-    struct udev_list_entry *list_entry = 0;
-    struct udev_list_entry* model_entry = 0;
+    struct udev_list_entry *list_entry = nullptr;
+    struct udev_list_entry *model_entry = nullptr;
 
-    struct udev_monitor *udev_monitor = NULL;
+    struct udev_monitor *udev_monitor = nullptr;
     fd_set readfds;
     s_bSD_present = false;
 
     udev = udev_new();
-    if (udev == NULL)
+    if (udev == nullptr)
     {
-        printf("udev_new FAILED \n");
+        qCritical() << "udev_new FAILED";
     }
 
     udev_monitor = udev_monitor_new_from_netlink(udev, "udev");
-    if (udev_monitor == NULL) {
-        printf("udev_monitor_new_from_netlink FAILED \n");
+    if (udev_monitor == nullptr)
+    {
+        qCritical() << "udev_monitor_new_from_netlink FAILED";
     }
 
-    //add some filters
     if( udev_monitor_filter_add_match_subsystem_devtype(udev_monitor, "block", "disk") < 0 )
     {
-        printf("udev_monitor_filter_add_match_subsystem_devtype FAILED \n");
+        qWarning() << "udev_monitor_filter_add_match_subsystem_devtype FAILED";
     }
 
     if (udev_monitor_enable_receiving(udev_monitor) < 0)
     {
-        printf("udev_monitor_enable_receiving FAILED \n");
+        qWarning() << "udev_monitor_enable_receiving FAILED";
     }
 
     while (1) {
-        printf("Polling devices... \n");
+        qDebug() << "Polling devices...";
 
         QCoreApplication::processEvents();
 
@@ -85,38 +82,29 @@ void tiBackupDiskObserver::start()
 
         FD_ZERO(&readfds);
 
-        if (udev_monitor != NULL)
+        if (udev_monitor != nullptr)
         {
             FD_SET(udev_monitor_get_fd(udev_monitor), &readfds);
         }
 
-        fdcount = select(udev_monitor_get_fd(udev_monitor)+1, &readfds, NULL, NULL, NULL);
+        fdcount = select(udev_monitor_get_fd(udev_monitor)+1, &readfds, nullptr, nullptr, nullptr);
         if (fdcount < 0)
         {
             if (errno != EINTR)
-                printf("Error receiving uevent message\n");
+                qWarning() << "Error receiving uevent message";
             continue;
         }
 
-        if ((udev_monitor != NULL) && FD_ISSET(udev_monitor_get_fd(udev_monitor), &readfds))
+        if ((udev_monitor != nullptr) && FD_ISSET(udev_monitor_get_fd(udev_monitor), &readfds))
         {
             struct udev_device *device;
 
             device = udev_monitor_receive_device(udev_monitor);
-            if (device == NULL)
+            if (device == nullptr)
                 continue;
 
-            //check presence
             if( isDeviceUSB(device) || isDeviceATA(device) )
             {
-                /*
-                if(!s_bSD_present) //guard for double "change" events
-                {
-                    s_bSD_present = true;
-                    printf("+++SD has been plugged in \n");
-                }
-                */
-
                 list_entry = udev_device_get_properties_list_entry(device);
 
                 model_entry = udev_list_entry_get_by_name(list_entry, "ACTION");
@@ -157,10 +145,10 @@ void tiBackupDiskObserver::start()
             }
             else
             {
-                if(s_bSD_present) //not needed -> just keeping consistency
+                if(s_bSD_present)
                 {
                     s_bSD_present = false;
-                    printf("---SD has been removed \n");
+                    qDebug() << "SD has been removed";
                 }
             }
 
@@ -174,21 +162,17 @@ void tiBackupDiskObserver::start()
 bool tiBackupDiskObserver::isDeviceUSB(struct udev_device *device)
 {
     bool retVal = false;
-    struct udev_list_entry *list_entry = 0;
-    struct udev_list_entry* model_entry = 0;
-
-    //print_device(device, "UDEV");
+    struct udev_list_entry *list_entry = nullptr;
+    struct udev_list_entry *model_entry = nullptr;
 
     list_entry = udev_device_get_properties_list_entry(device);
     model_entry = udev_list_entry_get_by_name(list_entry, "ID_BUS");
-    if( 0 != model_entry )
+    if( nullptr != model_entry )
     {
         const char* szModelValue = udev_list_entry_get_value(model_entry);
         if( strcmp( szModelValue, "usb") == 0 )
         {
-            //printf("Device is SD \n");
             retVal = true;
-
             print_device(device, "UDEV");
         }
     }
@@ -198,21 +182,17 @@ bool tiBackupDiskObserver::isDeviceUSB(struct udev_device *device)
 bool tiBackupDiskObserver::isDeviceATA(udev_device *device)
 {
     bool retVal = false;
-    struct udev_list_entry *list_entry = 0;
-    struct udev_list_entry* model_entry = 0;
-
-    //print_device(device, "UDEV");
+    struct udev_list_entry *list_entry = nullptr;
+    struct udev_list_entry *model_entry = nullptr;
 
     list_entry = udev_device_get_properties_list_entry(device);
     model_entry = udev_list_entry_get_by_name(list_entry, "ID_BUS");
-    if( 0 != model_entry )
+    if( nullptr != model_entry )
     {
         const char* szModelValue = udev_list_entry_get_value(model_entry);
         if( strcmp( szModelValue, "ata") == 0 )
         {
-            //printf("Device is SD \n");
             retVal = true;
-
             print_device(device, "UDEV");
         }
     }
@@ -221,23 +201,20 @@ bool tiBackupDiskObserver::isDeviceATA(udev_device *device)
 
 void tiBackupDiskObserver::print_device(struct udev_device *device, const char *source)
 {
-      struct timeval tv;
-      struct timezone tz;
+    struct timeval tv;
+    struct timezone tz;
 
-      gettimeofday(&tv, &tz);
-      printf("%-6s[%llu.%06u] %-8s %s (%s)\n",
+    gettimeofday(&tv, &tz);
+    qDebug() << QString::asprintf("%-6s[%llu.%06u] %-8s %s (%s)",
              source,
              (unsigned long long) tv.tv_sec, (unsigned int) tv.tv_usec,
              udev_device_get_action(device),
              udev_device_get_devpath(device),
              udev_device_get_subsystem(device));
 
-            struct udev_list_entry *list_entry;
-
-            udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(device))
-                  printf("%s=%s\n",
-                         udev_list_entry_get_name(list_entry),
-                         udev_list_entry_get_value(list_entry));
-            printf("\n");
-
+    struct udev_list_entry *list_entry;
+    udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(device))
+        qDebug() << QString::asprintf("%s=%s",
+                     udev_list_entry_get_name(list_entry),
+                     udev_list_entry_get_value(list_entry));
 }

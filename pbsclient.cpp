@@ -7,8 +7,6 @@
 #include <QNetworkCookieJar>
 #include <QNetworkCookie>
 
-pbsClient* pbsClient::_instance = 0;
-
 pbsClient::pbsClient(QObject *parent) : QObject(parent)
 {
     nam = new QNetworkAccessManager(this);

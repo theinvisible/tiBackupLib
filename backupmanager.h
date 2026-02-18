@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QHash>
+#include <memory>
 
 #include "ticonf.h"
 
@@ -14,7 +15,7 @@ class backupManager : public QObject
 public:
     explicit backupManager(QObject *parent = nullptr);
 
-    enum backupStatus {
+    enum class backupStatus {
         running,
         failed,
         finished,
@@ -26,13 +27,13 @@ public:
     backupStatus getBackupStatus(const QString &name);
 
 public slots:
-    void onBackupFinished(QString name);
+    void onBackupFinished(const QString &name);
 
 signals:
 
 private:
-    QHash<QString, backupStatus> *backups;
-    tiConfBackupJobs *backupjobs;
+    std::unique_ptr<QHash<QString, backupStatus>> backups;
+    std::unique_ptr<tiConfBackupJobs> backupjobs;
 
     ~backupManager();
 

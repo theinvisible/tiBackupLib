@@ -29,12 +29,8 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 
 #include "config.h"
 
-tiConfPBServers* tiConfPBServers::_instance = 0;
-
 tiConfMain::tiConfMain()
 {
-    settings = 0;
-
     initMainConf();
 
     if(!QFile(tibackup_config::file_main).exists())
@@ -43,14 +39,10 @@ tiConfMain::tiConfMain()
         exit(EXIT_FAILURE);
     }
 
-    settings = new QSettings(tibackup_config::file_main, QSettings::IniFormat);
+    settings = std::make_unique<QSettings>(tibackup_config::file_main, QSettings::IniFormat);
 }
 
-tiConfMain::~tiConfMain()
-{
-    if(settings != 0)
-        delete settings;
-}
+tiConfMain::~tiConfMain() = default;
 
 void tiConfMain::initMainConf()
 {
@@ -128,18 +120,14 @@ QString tiConfMain::getLogsDetailDir()
 
 tiConfBackupJobs::tiConfBackupJobs()
 {
-    main_settings = new tiConfMain();
-    QList<tiBackupJob*> jobs;
+    main_settings = std::make_unique<tiConfMain>();
 }
 
-tiConfBackupJobs::~tiConfBackupJobs()
-{
-    delete main_settings;
-}
+tiConfBackupJobs::~tiConfBackupJobs() = default;
 
 void tiConfBackupJobs::saveBackupJob(const tiBackupJob &job)
 {
-    QString filename = QString(main_settings->getValue("paths/backupjobs").toString()).append("/%1.conf").arg(job.name);
+    QString filename = QString("%1/%2.conf").arg(main_settings->getValue("paths/backupjobs").toString(), job.name);
     QDir jobsdir(main_settings->getValue("paths/backupjobs").toString());
     if(!jobsdir.exists())
         jobsdir.mkpath(main_settings->getValue("paths/backupjobs").toString());
@@ -147,7 +135,7 @@ void tiConfBackupJobs::saveBackupJob(const tiBackupJob &job)
     if(QFile::exists(filename))
         QFile::remove(filename);
 
-    QSettings *f = new QSettings(filename, QSettings::IniFormat);
+    auto f = std::make_unique<QSettings>(filename, QSettings::IniFormat);
 
     f->beginGroup("job");
     f->setValue("name", job.name);
@@ -163,16 +151,12 @@ void tiConfBackupJobs::saveBackupJob(const tiBackupJob &job)
     f->setValue("compare_via_checksum", job.compare_via_checksum);
 
     f->beginWriteArray("folders");
-    QMultiHashIterator<QString, QString> it(job.backupdirs);
     int i = 0;
-    while(it.hasNext())
+    for(const auto &[source, dest] : job.backupdirs.asKeyValueRange())
     {
-        it.next();
-        f->setArrayIndex(i);
-        f->setValue("source", it.key());
-        f->setValue("dest", it.value());
-
-        i++;
+        f->setArrayIndex(i++);
+        f->setValue("source", source);
+        f->setValue("dest", dest);
     }
     f->endArray();
     f->endGroup();
@@ -193,13 +177,10 @@ void tiConfBackupJobs::saveBackupJob(const tiBackupJob &job)
     f->setValue("pbs_server_storage", job.pbs_server_storage);
     f->setValue("pbs_dest_folder", job.pbs_dest_folder);
     f->beginWriteArray("pbs_ids");
-    QListIterator<QString> it2(job.pbs_backup_ids);
-    int j = 0;
-    while(it2.hasNext())
+    for(int j = 0; j < job.pbs_backup_ids.size(); ++j)
     {
         f->setArrayIndex(j);
-        f->setValue("id", it2.next());
-        j++;
+        f->setValue("id", job.pbs_backup_ids[j]);
     }
     f->endArray();
     f->endGroup();
@@ -216,7 +197,6 @@ void tiConfBackupJobs::saveBackupJob(const tiBackupJob &job)
     f->endGroup();
 
     f->sync();
-    delete f;
 }
 
 void tiConfBackupJobs::readBackupJobs()
@@ -234,7 +214,7 @@ void tiConfBackupJobs::readBackupJobs()
         {
             qDebug() << "tiConfBackupJobs::readBackupJobs() -> jobfile found:" << jobfilepath;
 
-            QSettings *f = new QSettings(jobfilepath, QSettings::IniFormat);
+            auto f = std::make_unique<QSettings>(jobfilepath, QSettings::IniFormat);
             tiBackupJob *job = new tiBackupJob;
 
             f->beginGroup("job");
@@ -294,7 +274,6 @@ void tiConfBackupJobs::readBackupJobs()
             f->endGroup();
 
             jobs.append(job);
-            delete f;
         }
     }
 }
@@ -308,11 +287,9 @@ QList<tiBackupJob *> tiConfBackupJobs::getJobsByUuid(const QString &uuid)
 {
     readBackupJobs();
     QList<tiBackupJob*> retjobs;
-    tiBackupJob *job = 0;
 
-    for(int i=0; i < jobs.count(); i++)
+    for(tiBackupJob *job : jobs)
     {
-        job = jobs.at(i);
         if(job->partition_uuid == uuid)
             retjobs.append(job);
     }
@@ -323,16 +300,14 @@ QList<tiBackupJob *> tiConfBackupJobs::getJobsByUuid(const QString &uuid)
 tiBackupJob *tiConfBackupJobs::getJobByName(const QString &jobname)
 {
     readBackupJobs();
-    tiBackupJob *job = 0;
 
-    for(int i=0; i < jobs.count(); i++)
+    for(tiBackupJob *job : jobs)
     {
-        job = jobs.at(i);
         if(job->name == jobname)
             return job;
     }
 
-    return job;
+    return nullptr;
 }
 
 bool tiConfBackupJobs::removeJobByName(const QString &jobname)
@@ -348,18 +323,14 @@ bool tiConfBackupJobs::renameJob(const QString &oldname, const QString &newname)
 
 tiConfPBServers::tiConfPBServers()
 {
-    main_settings = new tiConfMain();
-    QList<PBServer*> items;
+    main_settings = std::make_unique<tiConfMain>();
 }
 
-tiConfPBServers::~tiConfPBServers()
-{
-    delete main_settings;
-}
+tiConfPBServers::~tiConfPBServers() = default;
 
 void tiConfPBServers::saveItem(const PBServer &item)
 {
-    QString filename = QString(main_settings->getValue("paths/pbservers").toString()).append("/%1.conf").arg(item.uuid);
+    QString filename = QString("%1/%2.conf").arg(main_settings->getValue("paths/pbservers").toString(), item.uuid);
     QDir itemdir(main_settings->getValue("paths/pbservers").toString());
     if(!itemdir.exists())
         itemdir.mkpath(main_settings->getValue("paths/pbservers").toString());
@@ -367,7 +338,7 @@ void tiConfPBServers::saveItem(const PBServer &item)
     if(QFile::exists(filename))
         QFile::remove(filename);
 
-    QSettings *f = new QSettings(filename, QSettings::IniFormat);
+    auto f = std::make_unique<QSettings>(filename, QSettings::IniFormat);
 
     f->beginGroup("pbserver");
     f->setValue("uuid", item.uuid);
@@ -382,7 +353,6 @@ void tiConfPBServers::saveItem(const PBServer &item)
     f->endGroup();
 
     f->sync();
-    delete f;
 }
 
 void tiConfPBServers::readItems()
@@ -399,7 +369,7 @@ void tiConfPBServers::readItems()
         {
             qDebug() << "tiConfPBServers::readItems() -> item found:" << filepath;
 
-            QSettings *f = new QSettings(filepath, QSettings::IniFormat);
+            auto f = std::make_unique<QSettings>(filepath, QSettings::IniFormat);
             PBServer *item = new PBServer;
 
             f->beginGroup("pbserver");
@@ -415,7 +385,6 @@ void tiConfPBServers::readItems()
             f->endGroup();
 
             items.append(item);
-            delete f;
         }
     }
 }
@@ -428,31 +397,27 @@ QList<PBServer *> tiConfPBServers::getItems()
 PBServer *tiConfPBServers::getItemByName(const QString &name)
 {
     readItems();
-    PBServer *item = 0;
 
-    for(int i=0; i < items.count(); i++)
+    for(PBServer *item : items)
     {
-        item = items.at(i);
         if(item->name == name)
             return item;
     }
 
-    return item;
+    return nullptr;
 }
 
 PBServer *tiConfPBServers::getItemByUuid(const QString &uuid)
 {
     readItems();
-    PBServer *item = 0;
 
-    for(int i=0; i < items.count(); i++)
+    for(PBServer *item : items)
     {
-        item = items.at(i);
         if(item->uuid == uuid)
             return item;
     }
 
-    return item;
+    return nullptr;
 }
 
 bool tiConfPBServers::removeItemByName(const QString &name)

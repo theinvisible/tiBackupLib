@@ -4,23 +4,21 @@
 
 backupManager::backupManager(QObject *parent) : QObject(parent)
 {
-    backups = new QHash<QString, backupStatus>();
-    backupjobs = new tiConfBackupJobs();
+    backups = std::make_unique<QHash<QString, backupStatus>>();
+    backupjobs = std::make_unique<tiConfBackupJobs>();
     backupjobs->readBackupJobs();
 }
 
 backupManager::~backupManager()
 {
     // Todo: Check if there are running backups and stop them
-    delete backups;
-    delete backupjobs;
 }
 
 bool backupManager::startBackup(const QString &name)
 {
     backupjobs->readBackupJobs();
     tiBackupJob* job = backupjobs->getJobByName(name);
-    if(job == 0) {
+    if(job == nullptr) {
         qWarning() << "backupManager::startBackup() -> Backupjob " << name << " not found";
         return false;
     }
@@ -43,7 +41,7 @@ bool backupManager::startBackup(const QString &name)
 
 QHash<QString, backupManager::backupStatus> *backupManager::getBackupStatus()
 {
-    return backups;
+    return backups.get();
 }
 
 backupManager::backupStatus backupManager::getBackupStatus(const QString &name)
@@ -51,7 +49,7 @@ backupManager::backupStatus backupManager::getBackupStatus(const QString &name)
     return (backups->contains(name)) ? (*backups)[name] : backupStatus::standby;
 }
 
-void backupManager::onBackupFinished(QString name)
+void backupManager::onBackupFinished(const QString &name)
 {
     (*backups)[name] = backupStatus::finished;
 }

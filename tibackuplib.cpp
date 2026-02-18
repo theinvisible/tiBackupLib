@@ -28,12 +28,9 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 #include <QProcess>
 
 #include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <stddef.h>
 #include <errno.h>
-#include <sys/time.h> //debug -> remove me
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -54,13 +51,13 @@ QList<DeviceDisk> TiBackupLib::getAttachedDisks()
     struct udev_enumerate *enumerate;
     struct udev_list_entry *devices, *dev_list_entry;
 
-    struct udev_list_entry *list_entry = 0;
-    struct udev_list_entry* model_entry = 0;
+    struct udev_list_entry *list_entry = nullptr;
+    struct udev_list_entry *model_entry = nullptr;
 
     udev = udev_new();
-    if (udev == NULL)
+    if (udev == nullptr)
     {
-        printf("udev_new FAILED \n");
+        qCritical() << "udev_new FAILED";
     }
 
     enumerate = udev_enumerate_new(udev);
@@ -74,7 +71,6 @@ QList<DeviceDisk> TiBackupLib::getAttachedDisks()
         const char* dev_path = udev_list_entry_get_name(dev_list_entry);
         dev = udev_device_new_from_syspath(udev, dev_path);
 
-        //if( isDeviceUSB(dev) || isDeviceATA(dev) || isDeviceSCSI(dev) || isDeviceNVME(dev) )
         if( isDeviceDisk(dev) )
         {
             list_entry = udev_device_get_properties_list_entry(dev);
@@ -117,22 +113,17 @@ QList<DeviceDisk> TiBackupLib::getAttachedDisks()
 bool TiBackupLib::isDeviceUSB(struct udev_device *device)
 {
     bool retVal = false;
-    struct udev_list_entry *list_entry = 0;
-    struct udev_list_entry* model_entry = 0;
-
-    //print_device(device, "UDEV");
+    struct udev_list_entry *list_entry = nullptr;
+    struct udev_list_entry *model_entry = nullptr;
 
     list_entry = udev_device_get_properties_list_entry(device);
     model_entry = udev_list_entry_get_by_name(list_entry, "ID_BUS");
-    if( 0 != model_entry )
+    if( nullptr != model_entry )
     {
         const char* szModelValue = udev_list_entry_get_value(model_entry);
         if( strcmp( szModelValue, "usb") == 0 )
         {
-            //printf("Device is SD \n");
             retVal = true;
-
-            //print_device(device, "UDEV");
         }
     }
     return retVal;
@@ -141,22 +132,17 @@ bool TiBackupLib::isDeviceUSB(struct udev_device *device)
 bool TiBackupLib::isDeviceATA(udev_device *device)
 {
     bool retVal = false;
-    struct udev_list_entry *list_entry = 0;
-    struct udev_list_entry* model_entry = 0;
-
-    //print_device(device, "UDEV");
+    struct udev_list_entry *list_entry = nullptr;
+    struct udev_list_entry *model_entry = nullptr;
 
     list_entry = udev_device_get_properties_list_entry(device);
     model_entry = udev_list_entry_get_by_name(list_entry, "ID_BUS");
-    if( 0 != model_entry )
+    if( nullptr != model_entry )
     {
         const char* szModelValue = udev_list_entry_get_value(model_entry);
         if( strcmp( szModelValue, "ata") == 0 )
         {
-            //printf("Device is SD \n");
             retVal = true;
-
-            //print_device(device, "UDEV");
         }
     }
     return retVal;
@@ -165,22 +151,17 @@ bool TiBackupLib::isDeviceATA(udev_device *device)
 bool TiBackupLib::isDeviceSCSI(udev_device *device)
 {
     bool retVal = false;
-    struct udev_list_entry *list_entry = 0;
-    struct udev_list_entry* model_entry = 0;
-
-    //print_device(device, "UDEV");
+    struct udev_list_entry *list_entry = nullptr;
+    struct udev_list_entry *model_entry = nullptr;
 
     list_entry = udev_device_get_properties_list_entry(device);
     model_entry = udev_list_entry_get_by_name(list_entry, "ID_BUS");
-    if( 0 != model_entry )
+    if( nullptr != model_entry )
     {
         const char* szModelValue = udev_list_entry_get_value(model_entry);
         if( strcmp( szModelValue, "scsi") == 0 )
         {
-            //printf("Device is SD \n");
             retVal = true;
-
-            //print_device(device, "UDEV");
         }
     }
     return retVal;
@@ -189,22 +170,17 @@ bool TiBackupLib::isDeviceSCSI(udev_device *device)
 bool TiBackupLib::isDeviceNVME(udev_device *device)
 {
     bool retVal = false;
-    struct udev_list_entry *list_entry = 0;
-    struct udev_list_entry* model_entry = 0;
-
-    //print_device(device, "UDEV");
+    struct udev_list_entry *list_entry = nullptr;
+    struct udev_list_entry *model_entry = nullptr;
 
     list_entry = udev_device_get_properties_list_entry(device);
     model_entry = udev_list_entry_get_by_name(list_entry, "ID_BUS");
-    if( 0 != model_entry )
+    if( nullptr != model_entry )
     {
         const char* szModelValue = udev_list_entry_get_value(model_entry);
         if( strcmp( szModelValue, "nvme") == 0 )
         {
-            //printf("Device is SD \n");
             retVal = true;
-
-            //print_device(device, "UDEV");
         }
     }
     return retVal;
@@ -213,25 +189,20 @@ bool TiBackupLib::isDeviceNVME(udev_device *device)
 bool TiBackupLib::isDeviceDisk(udev_device *device)
 {
     bool retVal = false;
-    struct udev_list_entry *list_entry = 0;
-    struct udev_list_entry* model_entry = 0;
-    struct udev_list_entry* model_part_table_type = 0;
-
-    //print_device(device, "UDEV");
+    struct udev_list_entry *list_entry = nullptr;
+    struct udev_list_entry *model_entry = nullptr;
+    struct udev_list_entry *model_part_table_type = nullptr;
 
     list_entry = udev_device_get_properties_list_entry(device);
     model_entry = udev_list_entry_get_by_name(list_entry, "DEVTYPE");
     model_part_table_type = udev_list_entry_get_by_name(list_entry, "ID_PART_TABLE_TYPE");
-    if( 0 != model_entry && 0 != model_part_table_type )
+    if( nullptr != model_entry && nullptr != model_part_table_type )
     {
         const char* szModelValue = udev_list_entry_get_value(model_entry);
         const char* szModelValue2 = udev_list_entry_get_value(model_part_table_type);
         if( strcmp( szModelValue, "disk") == 0 && (strcmp( szModelValue2, "gpt") == 0 || strcmp( szModelValue2, "dos") == 0) )
         {
-            //printf("Device is SD \n");
             retVal = true;
-
-            //print_device(device, "UDEV");
         }
     }
     return retVal;
@@ -239,30 +210,27 @@ bool TiBackupLib::isDeviceDisk(udev_device *device)
 
 void TiBackupLib::print_device(struct udev_device *device, const char *source)
 {
-      struct timeval tv;
-      struct timezone tz;
+    struct timeval tv;
+    struct timezone tz;
 
-      gettimeofday(&tv, &tz);
-      printf("%-6s[%llu.%06u] %-8s %s (%s)\n",
+    gettimeofday(&tv, &tz);
+    qDebug() << QString::asprintf("%-6s[%llu.%06u] %-8s %s (%s)",
              source,
              (unsigned long long) tv.tv_sec, (unsigned int) tv.tv_usec,
              udev_device_get_action(device),
              udev_device_get_devpath(device),
              udev_device_get_subsystem(device));
 
-            struct udev_list_entry *list_entry;
-
-            udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(device))
-                  printf("%s=%s\n",
-                         udev_list_entry_get_name(list_entry),
-                         udev_list_entry_get_value(list_entry));
-            printf("\n");
-
+    struct udev_list_entry *list_entry;
+    udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(device))
+        qDebug() << QString::asprintf("%s=%s",
+                     udev_list_entry_get_name(list_entry),
+                     udev_list_entry_get_value(list_entry));
 }
 
 QString TiBackupLib::mountPartition(DeviceDiskPartition *part, tiBackupJob *job)
 {
-    QString mount_dir = QString(tibackup_config::mount_root).append("/").append(part->uuid);
+    QString mount_dir = QDir(tibackup_config::mount_root).filePath(part->uuid);
     QDir m_dir(mount_dir);
     if(!m_dir.exists(mount_dir))
         m_dir.mkdir(mount_dir);
@@ -272,15 +240,15 @@ QString TiBackupLib::mountPartition(DeviceDiskPartition *part, tiBackupJob *job)
     if(part->type == "crypto_LUKS")
     {
         // We need further information for encryption
-        if(job == 0)
+        if(job == nullptr)
             return "";
 
         QString pass;
         switch(job->encLUKSType)
         {
-        case tiBackupEncLUKSNONE:
+        case tiBackupEncLUKS::NONE:
             return "";
-        case tiBackupEncLUKSFILE:
+        case tiBackupEncLUKS::FILE:
         {
             QFile script(job->encLUKSFilePath);
             if(!script.exists())
@@ -290,7 +258,7 @@ QString TiBackupLib::mountPartition(DeviceDiskPartition *part, tiBackupJob *job)
             script.close();
         }
             break;
-        case tiBackupEncLUKSGENUSBDEV:
+        case tiBackupEncLUKS::GENUSBDEV:
             break;
         }
 
@@ -298,7 +266,6 @@ QString TiBackupLib::mountPartition(DeviceDiskPartition *part, tiBackupJob *job)
         mnt_src = getMountPathSrc(part);
     }
 
-    //int ret = mount(part->name.toStdString().c_str(), mount_dir.toStdString().c_str(), part->type.toStdString().c_str(), 0, 0);
     runCommandwithReturnCode(QString("mount %1 %2").arg(mnt_src, mount_dir));
 
     return mount_dir;
@@ -306,8 +273,6 @@ QString TiBackupLib::mountPartition(DeviceDiskPartition *part, tiBackupJob *job)
 
 void TiBackupLib::umountPartition(DeviceDiskPartition *part)
 {
-    //QString mount_dir = QString(tibackup_config::mount_root).append("/").append(part->uuid);
-    //int ret = umount(mount_dir.toStdString().c_str());
     QString mount_dir = getMountDir(part);
     runCommandwithReturnCode(QString("umount \"%1\"").arg(mount_dir), -1);
 
@@ -319,15 +284,15 @@ void TiBackupLib::umountPartition(DeviceDiskPartition *part)
 
 bool TiBackupLib::isMounted(const QString &dev_path)
 {
-   FILE * mtab = NULL;
-   struct mntent * part = NULL;
+   FILE * mtab = nullptr;
+   struct mntent * part = nullptr;
    bool is_mounted = false;
 
-   if(( mtab = setmntent("/etc/mtab", "r") ) != NULL)
+   if(( mtab = setmntent("/etc/mtab", "r") ) != nullptr)
    {
-       while((part = getmntent(mtab)) != NULL)
+       while((part = getmntent(mtab)) != nullptr)
        {
-            if((part->mnt_fsname != NULL) && ( strcmp(part->mnt_fsname, dev_path.toStdString().c_str() )) == 0 )
+            if((part->mnt_fsname != nullptr) && ( strcmp(part->mnt_fsname, dev_path.toStdString().c_str() )) == 0 )
             {
                 is_mounted = true;
             }
@@ -348,15 +313,15 @@ bool TiBackupLib::isMounted(DeviceDiskPartition *dev)
 
 QString TiBackupLib::getMountDir(const QString &dev_path)
 {
-    FILE * mtab = NULL;
-    struct mntent * part = NULL;
+    FILE * mtab = nullptr;
+    struct mntent * part = nullptr;
     QString mount_dir;
 
-    if(( mtab = setmntent("/etc/mtab", "r") ) != NULL)
+    if(( mtab = setmntent("/etc/mtab", "r") ) != nullptr)
     {
-        while((part = getmntent(mtab)) != NULL)
+        while((part = getmntent(mtab)) != nullptr)
         {
-             if((part->mnt_fsname != NULL) && ( strcmp(part->mnt_fsname, dev_path.toStdString().c_str() )) == 0 )
+             if((part->mnt_fsname != nullptr) && ( strcmp(part->mnt_fsname, dev_path.toStdString().c_str() )) == 0 )
              {
                  mount_dir = part->mnt_dir;
              }
@@ -427,14 +392,14 @@ QString TiBackupLib::convertPath2Generic(const QString &path, const QString &mou
         return path;
 
     QString str = path;
-    str.replace(mountdir, QString(tibackup_config::var_partbackup_dir));
+    str.replace(mountdir, tibackup_config::var_partbackup_dir);
     return str;
 }
 
 QString TiBackupLib::convertGeneric2Path(const QString &path, const QString &mountdir)
 {
     QString str = path;
-    str.replace(QString(tibackup_config::var_partbackup_dir), mountdir);
+    str.replace(tibackup_config::var_partbackup_dir, mountdir);
     return str;
 }
 
@@ -443,24 +408,19 @@ DeviceDiskPartition TiBackupLib::getPartitionByUUID(const QString &uuid)
     TiBackupLib blib;
     QList<DeviceDisk> disks = blib.getAttachedDisks();
     DeviceDiskPartition retPart;
-    for(int i=0; i < disks.count(); i++)
-    {
-        DeviceDisk disk = disks.at(i);
 
+    for(auto &disk : disks)
+    {
         if(disk.devtype == "disk")
         {
             disk.readPartitions();
-            for(int j=0; j < disk.partitions.count(); j++)
+            for(const auto &part : disk.partitions)
             {
-                DeviceDiskPartition part = disk.partitions.at(j);
-
                 if(part.uuid.isEmpty())
                     continue;
 
                 if(part.uuid == uuid)
-                {
                     return part;
-                }
             }
         }
     }

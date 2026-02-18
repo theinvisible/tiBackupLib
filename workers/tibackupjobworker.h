@@ -30,7 +30,7 @@ class tiBackupJobWorker : public QObject
 {
     Q_OBJECT
 public:
-    explicit tiBackupJobWorker(QObject *parent = 0);
+    explicit tiBackupJobWorker(QObject *parent = nullptr);
     void setJobName(const QString &name);
 
 signals:

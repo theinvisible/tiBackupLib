@@ -5,8 +5,6 @@
 #include "config.h"
 #include "tibackupapi.h"
 
-ipcClient* ipcClient::_instance = 0;
-
 ipcClient::ipcClient(QObject *parent) : QObject(parent)
 {
 
@@ -31,11 +29,11 @@ ipcClient::STATUS_ANSWER ipcClient::startBackup(const QString &jobname)
         apiClient->write(block);
         apiClient->flush();
 
-        ret.status = ipcClient::STATUS_OK;
+        ret.status = STATUS::STATUS_OK;
     }
     else
     {
-        ret.status = ipcClient::STATUS_CONNECT_FAILED;
+        ret.status = STATUS::STATUS_CONNECT_FAILED;
         ret.msg = apiClient->errorString();
     }
 
@@ -165,18 +163,18 @@ ipcClient::STATUS_ANSWER ipcClient::mountPartition(const DeviceDiskPartition &pa
         QHash<tiBackupApi::API_VAR, QString> apiData;
         apiData[tiBackupApi::API_VAR::API_VAR_CMD] = QString::number(tiBackupApi::API_CMD::API_CMD_PART_MOUNT);
         apiData[tiBackupApi::API_VAR::API_VAR_PART_UUID] = part.uuid;
-        apiData[tiBackupApi::API_VAR::API_VAR_JOB_LUKS_TYPE] = QString::number(job.encLUKSType);
+        apiData[tiBackupApi::API_VAR::API_VAR_JOB_LUKS_TYPE] = QString::number(static_cast<int>(job.encLUKSType));
         apiData[tiBackupApi::API_VAR::API_VAR_JOB_LUKS_FILEPATH] = job.encLUKSFilePath;
         out << apiData;
 
         apiClient->write(block);
         apiClient->flush();
 
-        ret.status = ipcClient::STATUS_OK;
+        ret.status = STATUS::STATUS_OK;
     }
     else
     {
-        ret.status = ipcClient::STATUS_CONNECT_FAILED;
+        ret.status = STATUS::STATUS_CONNECT_FAILED;
         ret.msg = apiClient->errorString();
     }
 
@@ -194,11 +192,11 @@ ipcClient::STATUS_ANSWER ipcClient::checkHealth()
     apiClient->connectToServer(tibackup_config::api_sock_name);
     if(apiClient->waitForConnected(1000))
     {
-        ret.status = ipcClient::STATUS_OK;
+        ret.status = STATUS::STATUS_OK;
     }
     else
     {
-        ret.status = ipcClient::STATUS_CONNECT_FAILED;
+        ret.status = STATUS::STATUS_CONNECT_FAILED;
         ret.msg = apiClient->errorString();
     }
 
@@ -240,11 +238,8 @@ QHash<QString, backupManager::backupStatus> ipcClient::getBackupStatus()
     apiClient->close();
     apiClient->disconnect();
 
-    QHashIterator<QString, int> i(tmp);
-    while (i.hasNext()) {
-        i.next();
-        status.insert(i.key(), static_cast<backupManager::backupStatus>(i.value()));
-    }
+    for(auto it = tmp.cbegin(); it != tmp.cend(); ++it)
+        status.insert(it.key(), static_cast<backupManager::backupStatus>(it.value()));
 
     return status;
 }
@@ -253,7 +248,7 @@ backupManager::backupStatus ipcClient::getBackupStatus(const QString &jobname)
 {
     QLocalSocket *apiClient = new QLocalSocket(this);
     apiClient->connectToServer(tibackup_config::api_sock_name);
-    int status = backupManager::backupStatus::standby;
+    int status = static_cast<int>(backupManager::backupStatus::standby);
     if(apiClient->waitForConnected(1000))
     {
         QByteArray block;

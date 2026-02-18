@@ -33,17 +33,17 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 
 class backupManager;
 
-enum tiBackupJobInterval {
-    tiBackupJobIntervalNONE,
-    tiBackupJobIntervalDAILY,
-    tiBackupJobIntervalWEEKLY,
-    tiBackupJobIntervalMONTHLY
+enum class tiBackupJobInterval {
+    NONE,
+    DAILY,
+    WEEKLY,
+    MONTHLY
 };
 
-enum tiBackupEncLUKS {
-    tiBackupEncLUKSNONE,
-    tiBackupEncLUKSFILE,
-    tiBackupEncLUKSGENUSBDEV
+enum class tiBackupEncLUKS {
+    NONE,
+    FILE,
+    GENUSBDEV
 };
 
 class tiBackupJobLog

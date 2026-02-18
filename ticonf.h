@@ -25,6 +25,7 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 #define TICONF_H
 
 #include <QSettings>
+#include <memory>
 
 #include "obj/tibackupjob.h"
 #include "obj/pbserver.h"
@@ -46,7 +47,7 @@ public:
     QString getLogsDetailDir();
 
 private:
-    QSettings *settings;
+    std::unique_ptr<QSettings> settings;
 };
 
 class tiConfBackupJobs
@@ -67,7 +68,7 @@ public:
     bool renameJob(const QString &oldname, const QString &newname);
 
 private:
-    tiConfMain *main_settings;
+    std::unique_ptr<tiConfMain> main_settings;
 
     QList<tiBackupJob*> jobs;
 };
@@ -77,10 +78,8 @@ class tiConfPBServers
 public:
     static tiConfPBServers* instance()
     {
-       static CGuard g;
-       if (!_instance)
-          _instance = new tiConfPBServers();
-       return _instance;
+        static tiConfPBServers inst;
+        return &inst;
     }
 
     void saveItem(const PBServer &item);
@@ -100,23 +99,9 @@ private:
     tiConfPBServers();
     ~tiConfPBServers();
 
-    static tiConfPBServers* _instance;
-    tiConfMain *main_settings;
+    std::unique_ptr<tiConfMain> main_settings;
 
     QList<PBServer*> items;
-
-    class CGuard
-    {
-    public:
-       ~CGuard()
-       {
-          if( NULL != tiConfPBServers::_instance )
-          {
-             delete tiConfPBServers::_instance;
-             tiConfPBServers::_instance = NULL;
-          }
-       }
-    };
 };
 
 #endif // TICONF_H

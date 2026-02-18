@@ -30,7 +30,7 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 #include "obj/devicedisk.h"
 #include "obj/tibackupjob.h"
 
-enum tiBackupInitSystem {
+enum class tiBackupInitSystem {
     Systemd,
     Other
 };
@@ -49,7 +49,7 @@ public:
     bool isDeviceDisk(struct udev_device *device);
     void print_device(struct udev_device *device, const char *source);
 
-    QString mountPartition(DeviceDiskPartition *part, tiBackupJob *job = 0);
+    QString mountPartition(DeviceDiskPartition *part, tiBackupJob *job = nullptr);
     void umountPartition(DeviceDiskPartition *part);
 
     bool isMounted(const QString &dev_path);

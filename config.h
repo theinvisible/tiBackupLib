@@ -21,23 +21,24 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 
 */
 
-#ifndef CONFIH_H
-#define CONFIH_H
+#ifndef CONFIG_H
+#define CONFIG_H
 
 #include <QDataStream>
+#include <QLatin1String>
 
 namespace tibackup_config
 {
-    static const char __attribute__ ((unused)) *version = "0.7.7";
-    static const char __attribute__ ((unused)) *file_main = "/etc/tibackup/main.conf";
-    static const char __attribute__ ((unused)) *mount_root = "/mnt";
-    static const char __attribute__ ((unused)) *initd_default = "/etc/init.d/tibackup";
-    static const char __attribute__ ((unused)) *api_sock_name = "tibackup";
-    static const char __attribute__ ((unused)) *systemd_name = "tibackupd";
-    static const QDataStream::Version __attribute__ ((unused)) ipc_version = QDataStream::Qt_5_7;
-    static const char __attribute__ ((unused)) *backup_detail_folder = "backup_detail";
+    [[maybe_unused]] static constexpr QLatin1String version{"0.7.7"};
+    [[maybe_unused]] static constexpr QLatin1String file_main{"/etc/tibackup/main.conf"};
+    [[maybe_unused]] static constexpr QLatin1String mount_root{"/mnt"};
+    [[maybe_unused]] static constexpr QLatin1String initd_default{"/etc/init.d/tibackup"};
+    [[maybe_unused]] static constexpr QLatin1String api_sock_name{"tibackup"};
+    [[maybe_unused]] static constexpr QLatin1String systemd_name{"tibackupd"};
+    [[maybe_unused]] static constexpr QDataStream::Version ipc_version = QDataStream::Qt_5_7;
+    [[maybe_unused]] static constexpr QLatin1String backup_detail_folder{"backup_detail"};
 
-    static const char __attribute__ ((unused)) *var_partbackup_dir = "%MNTBACKUPDIR%";
+    [[maybe_unused]] static constexpr QLatin1String var_partbackup_dir{"%MNTBACKUPDIR%"};
 }
 
-#endif // CONFIH_H
+#endif // CONFIG_H

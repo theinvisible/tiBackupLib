@@ -75,11 +75,11 @@ void tiBackupJob::startBackupThread(backupManager *manager)
     tiBackupJobWorker* worker = new tiBackupJobWorker();
     worker->setJobName(name);
     worker->moveToThread(thread);
-    QObject::connect(thread, SIGNAL(started()), worker, SLOT(process()));
-    QObject::connect(worker, SIGNAL(finished()), thread, SLOT(quit()));
-    QObject::connect(worker, SIGNAL(finished()), worker, SLOT(deleteLater()));
-    QObject::connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
-    QObject::connect(thread, &QThread::finished, manager, [=]() { manager->onBackupFinished(name); });
+    QObject::connect(thread, &QThread::started, worker, &tiBackupJobWorker::process);
+    QObject::connect(worker, &tiBackupJobWorker::finished, thread, &QThread::quit);
+    QObject::connect(worker, &tiBackupJobWorker::finished, worker, &QObject::deleteLater);
+    QObject::connect(thread, &QThread::finished, thread, &QObject::deleteLater);
+    QObject::connect(thread, &QThread::finished, manager, [manager, name = name]() { manager->onBackupFinished(name); });
     thread->start();
 }
 
@@ -95,10 +95,10 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
     QList<tiBackupJobPBSLog> bakPBSLogs;
 
     QDateTime currentDate = QDateTime::currentDateTime();
-    QFile *tibackupDetailLog = new QFile(QString("%1/%2__%3.log").arg(main_settings.getLogsDetailDir(), currentDate.toString("yyyy-MM-dd_HH-mm"), name));
-    tibackupDetailLog->open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Unbuffered);
+    QFile tibackupDetailLog(QString("%1/%2__%3.log").arg(main_settings.getLogsDetailDir(), currentDate.toString("yyyy-MM-dd_HH-mm"), name));
+    tibackupDetailLog.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Unbuffered);
 
-    QTextStream detailLog(tibackupDetailLog);
+    QTextStream detailLog(&tibackupDetailLog);
     detailLog << QString("Starting backup for %1 at %2 on %3 (%4)").arg(name, currentDate.toString("yyyy-MM-dd_HH-mm"), device, partition_uuid) << "\n";
     detailLog.flush();
 
@@ -132,7 +132,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         {
             detailLog << "Device could not be mounted, aborting" << "\n";
             detailLog.flush();
-            tibackupDetailLog->close();
+            tibackupDetailLog.close();
             return;
         }
     }
@@ -143,13 +143,11 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         detailLog << QString("Script <%1> will be taken as template").arg(scriptBeforeBackup) << "\n";
         detailLog.flush();
 
-        // We replace vars defined in scripts, so we write temporary file and execute it then
         QFile script(scriptBeforeBackup);
         script.open(QIODevice::ReadOnly | QIODevice::Text);
         QString scriptSource = QString(script.readAll());
         script.close();
 
-        // We write now temporary file
         QDateTime currentDate = QDateTime::currentDateTime();
         QString tmpfilename = QString("/tmp/%1_%2").arg(name, currentDate.toString("yyyyMMddhhmmss"));
         QFile tmpScript(tmpfilename);
@@ -184,14 +182,11 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
 
     // We get now the folders to backup
     QString src, dest, logpath, backupFArgs;
-    QMultiHashIterator<QString, QString> it(backupdirs);
-    while(it.hasNext())
+    for(const auto &[srcKey, destVal] : backupdirs.asKeyValueRange())
     {
-        it.next();
-
         tiBackupJobLog log;
-        src = log.source = it.key();
-        dest = log.destination = TiBackupLib::convertGeneric2Path(it.value(), deviceMountDir);
+        src = log.source = srcKey;
+        dest = log.destination = TiBackupLib::convertGeneric2Path(destVal, deviceMountDir);
         backupFArgs = backupArg;
 
         if(save_log == true)
@@ -241,7 +236,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         {
             tiConfPBServers *pbsconf = tiConfPBServers::instance();
             PBServer *pb = pbsconf->getItemByUuid(pbs_server_uuid);
-            if(pb != 0)
+            if(pb != nullptr)
             {
                 pbsClient *pbs = pbsClient::instanceUnique();
                 HttpStatus::Code status = pbs->auth(pb->host, pb->port, pb->username, pb->password);
@@ -256,10 +251,8 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                     if(!pb->keypass.isEmpty())
                         env.insert("PBS_ENCRYPTION_PASSWORD", pb->keypass);
 
-                    QListIterator<QString> pbs_items(pbs_backup_ids);
-                    while(pbs_items.hasNext())
+                    for(const auto &pbs_groupid : pbs_backup_ids)
                     {
-                        QString pbs_groupid = pbs_items.next();
                         QList<QString> pbs_id = pbs_groupid.split("/");
                         QString vmType = pbs_id[0];
                         QString vmID = pbs_id[1];
@@ -308,7 +301,6 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                     QRegularExpressionMatch match = re.match(files[j].toObject()["filename"].toString());
                                     QString file = match.captured(1);
 
-                                    //QString file = files[j].toString();
                                     QString respec = QString("%1/%2").arg(pbs_groupid, dt.toString(Qt::ISODate));
                                     detailLog << "Backup restore :: " << file << " orig::" << files[j].toObject()["filename"].toString() << "\n";
                                     detailLog.flush();
@@ -388,10 +380,10 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 if(vmType == "vm")
                                 {
                                     QString images;
-                                    for(int k=0; k < vmImages.count(); k++)
+                                    for(const auto &img : vmImages)
                                     {
-                                        QString devname = vmImages[k].split(".")[0];
-                                        images = images.append(devname).append("=").append(vmdir.path().append("/")).append(vmImages[k]).append(" ");
+                                        QString devname = img.split(".")[0];
+                                        images += devname + "=" + vmdir.path() + "/" + img + " ";
                                     }
 
                                     // Cleanup old backups
@@ -466,9 +458,8 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
 
                                 // Cleanup
                                 vmdir.remove(vmdir.path().append("/").append(vmConf));
-                                for(int l=0; l < vmImages.count(); l++)
+                                for(const auto &image : vmImages)
                                 {
-                                    QString image = vmImages[l];
                                     if(vmType == "ct") {
                                         QDir archive_dir(vmdir.path().append("/").append(image));
                                         archive_dir.removeRecursively();
@@ -527,13 +518,11 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         detailLog << QString("Run script after backup: Script <%1> will be taken as template").arg(scriptAfterBackup) << "\n";
         detailLog.flush();
 
-        // We replace vars defined in scripts, so we write temporary file and execute it then
         QFile script(scriptAfterBackup);
         script.open(QIODevice::ReadOnly | QIODevice::Text);
         QString scriptSource = QString(script.readAll());
         script.close();
 
-        // We write now temporary file
         QDateTime currentDate = QDateTime::currentDateTime();
         QString tmpfilename = QString("/tmp/%1_%2").arg(name, currentDate.toString("yyyyMMddhhmmss"));
         QFile tmpScript(tmpfilename);
@@ -584,18 +573,17 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         {
             mailMsg.append(QString("  Backup scripts are okay.\n"));
         }
-        for(int i=0; i < bakMessages.count() ; i++)
+        for(const auto &msg : bakMessages)
         {
-            mailMsg.append(QString("  %1\n").arg(bakMessages.at(i)));
+            mailMsg.append(QString("  %1\n").arg(msg));
         }
 
         if(pbs)
         {
             bool pbsok = true;
-            for(int ia=0; ia<bakPBSLogs.size(); ia++)
+            for(const auto &pbslog : bakPBSLogs)
             {
-                tiBackupJobPBSLog log = bakPBSLogs.at(ia);
-                if(!log.errmsg.isEmpty())
+                if(!pbslog.errmsg.isEmpty())
                     pbsok = false;
             }
 
@@ -608,9 +596,9 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                 mailMsg.append(QString("  PBS-Backup problems occurred, see below.\n"));
             }
 
-            for(int i=0; i < pbsMessages.count() ; i++)
+            for(const auto &msg : pbsMessages)
             {
-                mailMsg.append(QString("  %1\n").arg(pbsMessages.at(i)));
+                mailMsg.append(QString("  %1\n").arg(msg));
             }
         }
 
@@ -618,9 +606,8 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         if(pbs)
         {
             mailMsg.append(QString("\nPBS status information: \n\n"));
-            for(int ia=0; ia<bakPBSLogs.size(); ia++)
+            for(const auto &log : bakPBSLogs)
             {
-                tiBackupJobPBSLog log = bakPBSLogs.at(ia);
                 if(log.errmsg.isEmpty())
                     mailMsg.append(QString("  %1 -> %2\n").arg(log.vmid, log.msg));
                 else
@@ -630,14 +617,12 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
 
         // Rsync status
         mailMsg.append(QString("\nRsync status information: \n\n"));
-        for(int ia=0; ia<bakLogs.size(); ia++)
+        for(const auto &log : bakLogs)
         {
-            tiBackupJobLog log = bakLogs.at(ia);
             mailMsg.append(QString("  %1 -> %2 :: %3\n").arg(log.source, log.destination, exitCodesRsync::getMsg(log.ret_code)));
         }
 
         mail.addContent(new Poco::Net::StringPartSource(mailMsg.toStdString()));
-        //mail.addPart("html_msg", new Poco::Net::StringPartSource("Der Backupjob <b>wurde</b> abgeschlossen.", "text/html; charset=utf-8"), Poco::Net::MailMessage::CONTENT_INLINE, Poco::Net::MailMessage::ENCODING_8BIT);
 
         if(save_log == true && bakLogs.size() > 0)
         {
@@ -649,23 +634,23 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
             }
         }
 
-        Poco::Net::SMTPClientSession *smtp = 0;
-
         try
         {
-            smtp = new Poco::Net::SMTPClientSession(main_settings.getValue("smtp/server").toString().toStdString());
+            Poco::Net::SMTPClientSession smtp(main_settings.getValue("smtp/server").toString().toStdString());
 
             if(main_settings.getValue("smtp/auth").toBool() == true)
             {
-                smtp->login(Poco::Net::SMTPClientSession::AUTH_LOGIN, main_settings.getValue("smtp/username").toString().toStdString(), QString(QByteArray::fromBase64(main_settings.getValue("smtp/password").toString().toLatin1())).toStdString());
+                smtp.login(Poco::Net::SMTPClientSession::AUTH_LOGIN,
+                           main_settings.getValue("smtp/username").toString().toStdString(),
+                           QString(QByteArray::fromBase64(main_settings.getValue("smtp/password").toString().toLatin1())).toStdString());
             }
             else
             {
-                smtp->login();
+                smtp.login();
             }
 
-            smtp->sendMessage(mail);
-            smtp->close();
+            smtp.sendMessage(mail);
+            smtp.close();
 
             detailLog << "tiBackupJob::startBackup() -> Mail message was send successfully to " << notifyRecipients << "\n";
         }
@@ -681,8 +666,6 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         QDateTime currentFinishDate = QDateTime::currentDateTime();
         detailLog << QString("Backup job finished at %1!").arg(currentFinishDate.toString("yyyy-MM-dd_HH-mm")) << "\n";
         detailLog.flush();
-
-        if(smtp != 0) delete smtp;
     }
 
     lib.umountPartition(part);
