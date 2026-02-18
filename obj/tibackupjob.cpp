@@ -184,7 +184,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
 
     // We get now the folders to backup
     QString src, dest, logpath, backupFArgs;
-    QHashIterator<QString, QString> it(backupdirs);
+    QMultiHashIterator<QString, QString> it(backupdirs);
     while(it.hasNext())
     {
         it.next();
@@ -293,7 +293,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
 
                                 QJsonObject snap = snapshots[li].toObject();
                                 qint64 blastbackup = snap["backup-time"].toInt();
-                                QDateTime dt = QDateTime::fromMSecsSinceEpoch(blastbackup * 1000).toTimeSpec(Qt::UTC);
+                                QDateTime dt = QDateTime::fromMSecsSinceEpoch(blastbackup * 1000).toUTC();
                                 detailLog << "Newest backup file for" << pbs_groupid << " from " << dt.toString(Qt::ISODate) << "\n";
                                 detailLog.flush();
 
@@ -657,7 +657,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
 
             if(main_settings.getValue("smtp/auth").toBool() == true)
             {
-                smtp->login(Poco::Net::SMTPClientSession::AUTH_LOGIN, main_settings.getValue("smtp/username").toString().toStdString(), QString(QByteArray().fromBase64(QByteArray().append(main_settings.getValue("smtp/password").toString()))).toStdString());
+                smtp->login(Poco::Net::SMTPClientSession::AUTH_LOGIN, main_settings.getValue("smtp/username").toString().toStdString(), QString(QByteArray::fromBase64(main_settings.getValue("smtp/password").toString().toLatin1())).toStdString());
             }
             else
             {

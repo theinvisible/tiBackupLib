@@ -390,7 +390,7 @@ QString TiBackupLib::getMountPathSrc(DeviceDiskPartition *dev)
 QString TiBackupLib::runCommandwithOutput(const QString &cmd, int timeout)
 {
     QProcess proc;
-    proc.start(cmd, QIODevice::ReadOnly);
+    proc.startCommand(cmd, QIODevice::ReadOnly);
     proc.waitForStarted(timeout);
     proc.waitForFinished(timeout);
 
@@ -402,7 +402,7 @@ int TiBackupLib::runCommandwithReturnCode(const QString &cmd, int timeout)
     qDebug() << "TiBackupLib::runCommandwithReturnCode() -> run command::" << cmd;
 
     QProcess proc;
-    proc.start(cmd, QIODevice::ReadOnly);
+    proc.startCommand(cmd, QIODevice::ReadOnly);
     proc.waitForStarted(timeout);
     proc.waitForFinished(timeout);
 

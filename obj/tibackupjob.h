@@ -26,6 +26,7 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 
 #include <QString>
 #include <QHash>
+#include <QMultiHash>
 
 #include "devicedisk.h"
 #include "backupmanager.h"
@@ -72,7 +73,7 @@ public:
     QString device;
     QString partition_uuid;
 
-    QHash<QString, QString> backupdirs;
+    QMultiHash<QString, QString> backupdirs;
 
     bool delete_add_file_on_dest;
     bool start_backup_on_hotplug;

@@ -163,7 +163,7 @@ void tiConfBackupJobs::saveBackupJob(const tiBackupJob &job)
     f->setValue("compare_via_checksum", job.compare_via_checksum);
 
     f->beginWriteArray("folders");
-    QHashIterator<QString, QString> it(job.backupdirs);
+    QMultiHashIterator<QString, QString> it(job.backupdirs);
     int i = 0;
     while(it.hasNext())
     {
@@ -253,7 +253,7 @@ void tiConfBackupJobs::readBackupJobs()
             for (int i = 0; i < size; ++i)
             {
                 f->setArrayIndex(i);
-                job->backupdirs.insertMulti(f->value("source").toString(), f->value("dest").toString());
+                job->backupdirs.insert(f->value("source").toString(), f->value("dest").toString());
             }
             f->endArray();
             f->endGroup();

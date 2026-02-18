@@ -24,7 +24,7 @@ ipcClient::STATUS_ANSWER ipcClient::startBackup(const QString &jobname)
         QDataStream out(&block, QIODevice::WriteOnly);
         out.setVersion(tibackup_config::ipc_version);
         QHash<tiBackupApi::API_VAR, QString> apiData;
-        apiData[tiBackupApi::API_VAR::API_VAR_CMD] = tiBackupApi::API_CMD::API_CMD_START;
+        apiData[tiBackupApi::API_VAR::API_VAR_CMD] = QString::number(tiBackupApi::API_CMD::API_CMD_START);
         apiData[tiBackupApi::API_VAR::API_VAR_BACKUPJOB] = jobname;
         out << apiData;
 
@@ -56,7 +56,7 @@ QList<DeviceDiskPartition> ipcClient::getPartitionsForDevName(const QString &dev
         QDataStream out(&block, QIODevice::WriteOnly);
         out.setVersion(tibackup_config::ipc_version);
         QHash<tiBackupApi::API_VAR, QString> apiData;
-        apiData[tiBackupApi::API_VAR::API_VAR_CMD] = tiBackupApi::API_CMD::API_CMD_DISK_GET_PARTITIONS;
+        apiData[tiBackupApi::API_VAR::API_VAR_CMD] = QString::number(tiBackupApi::API_CMD::API_CMD_DISK_GET_PARTITIONS);
         apiData[tiBackupApi::API_VAR::API_VAR_DEVNAME] = devname;
         out << apiData;
 
@@ -91,7 +91,7 @@ DeviceDiskPartition ipcClient::getPartitionByDevnameUUID(const QString &devname,
         QDataStream out(&block, QIODevice::WriteOnly);
         out.setVersion(tibackup_config::ipc_version);
         QHash<tiBackupApi::API_VAR, QString> apiData;
-        apiData[tiBackupApi::API_VAR::API_VAR_CMD] = tiBackupApi::API_CMD::API_CMD_DISK_GET_PARTITION_BY_DEVNAME_UUID;
+        apiData[tiBackupApi::API_VAR::API_VAR_CMD] = QString::number(tiBackupApi::API_CMD::API_CMD_DISK_GET_PARTITION_BY_DEVNAME_UUID);
         apiData[tiBackupApi::API_VAR::API_VAR_DEVNAME] = devname;
         apiData[tiBackupApi::API_VAR::API_VAR_PART_UUID] = uuid;
         out << apiData;
@@ -127,7 +127,7 @@ DeviceDiskPartition ipcClient::getPartitionByUUID(const QString &uuid)
         QDataStream out(&block, QIODevice::WriteOnly);
         out.setVersion(tibackup_config::ipc_version);
         QHash<tiBackupApi::API_VAR, QString> apiData;
-        apiData[tiBackupApi::API_VAR::API_VAR_CMD] = tiBackupApi::API_CMD::API_CMD_DISK_GET_PARTITION_BY_UUID;
+        apiData[tiBackupApi::API_VAR::API_VAR_CMD] = QString::number(tiBackupApi::API_CMD::API_CMD_DISK_GET_PARTITION_BY_UUID);
         apiData[tiBackupApi::API_VAR::API_VAR_PART_UUID] = uuid;
         out << apiData;
 
@@ -163,9 +163,9 @@ ipcClient::STATUS_ANSWER ipcClient::mountPartition(const DeviceDiskPartition &pa
         QDataStream out(&block, QIODevice::WriteOnly);
         out.setVersion(tibackup_config::ipc_version);
         QHash<tiBackupApi::API_VAR, QString> apiData;
-        apiData[tiBackupApi::API_VAR::API_VAR_CMD] = tiBackupApi::API_CMD::API_CMD_PART_MOUNT;
+        apiData[tiBackupApi::API_VAR::API_VAR_CMD] = QString::number(tiBackupApi::API_CMD::API_CMD_PART_MOUNT);
         apiData[tiBackupApi::API_VAR::API_VAR_PART_UUID] = part.uuid;
-        apiData[tiBackupApi::API_VAR::API_VAR_JOB_LUKS_TYPE] = job.encLUKSType;
+        apiData[tiBackupApi::API_VAR::API_VAR_JOB_LUKS_TYPE] = QString::number(job.encLUKSType);
         apiData[tiBackupApi::API_VAR::API_VAR_JOB_LUKS_FILEPATH] = job.encLUKSFilePath;
         out << apiData;
 
@@ -220,7 +220,7 @@ QHash<QString, backupManager::backupStatus> ipcClient::getBackupStatus()
         QDataStream out(&block, QIODevice::WriteOnly);
         out.setVersion(tibackup_config::ipc_version);
         QHash<tiBackupApi::API_VAR, QString> apiData;
-        apiData[tiBackupApi::API_VAR::API_VAR_CMD] = tiBackupApi::API_CMD::API_CMD_BACKUP_STATUS;
+        apiData[tiBackupApi::API_VAR::API_VAR_CMD] = QString::number(tiBackupApi::API_CMD::API_CMD_BACKUP_STATUS);
         out << apiData;
 
         apiClient->write(block);
@@ -260,7 +260,7 @@ backupManager::backupStatus ipcClient::getBackupStatus(const QString &jobname)
         QDataStream out(&block, QIODevice::WriteOnly);
         out.setVersion(tibackup_config::ipc_version);
         QHash<tiBackupApi::API_VAR, QString> apiData;
-        apiData[tiBackupApi::API_VAR::API_VAR_CMD] = tiBackupApi::API_CMD::API_CMD_BACKUP_STATUS;
+        apiData[tiBackupApi::API_VAR::API_VAR_CMD] = QString::number(tiBackupApi::API_CMD::API_CMD_BACKUP_STATUS);
         apiData[tiBackupApi::API_VAR::API_VAR_BACKUPJOB] = jobname;
         out << apiData;
 
