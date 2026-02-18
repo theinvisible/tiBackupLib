@@ -5,7 +5,7 @@
 
 override_dh_auto_install:
 	mkdir -p debian/tibackuplib/usr/lib
-	cp -a libtiBackupLib.so* debian/tibackuplib/usr/lib/.
+	cp -a obj-x86_64-linux-gnu/libtiBackupLib.so* debian/tibackuplib/usr/lib/.
 
 override_dh_builddeb:
 	dh_builddeb -- -Zxz
