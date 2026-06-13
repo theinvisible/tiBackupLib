@@ -1,0 +1,8 @@
+@PACKAGE_INIT@
+
+# tiBackupLib only exposes Qt types through its public headers; consumers are
+# expected to find Qt6 themselves. The shared library resolves Poco/udev/blkid
+# internally (linked PRIVATE), so they are not propagated here.
+include("${CMAKE_CURRENT_LIST_DIR}/tiBackupLibTargets.cmake")
+
+check_required_components(tiBackupLib)

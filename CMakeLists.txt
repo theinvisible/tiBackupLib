@@ -42,7 +42,14 @@ qt_add_library(tiBackupLib SHARED
     resdata.qrc
 )
 
-target_include_directories(tiBackupLib PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(tiBackupLib PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<INSTALL_INTERFACE:include/tibackuplib>
+)
+
+# Lets consumers link tiBackupLib::tiBackupLib uniformly, whether they pull the
+# library in via find_package() (installed/exported) or add_subdirectory()/FetchContent.
+add_library(tiBackupLib::tiBackupLib ALIAS tiBackupLib)
 
 target_compile_definitions(tiBackupLib PRIVATE TIBACKUPLIB_LIBRARY)
 
@@ -61,6 +68,48 @@ target_link_libraries(tiBackupLib
         blkid
 )
 
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
+# Note: the Debian package installs the .so manually via debian/rules; this
+# install/export path is used by find_package() consumers (CI build-checks,
+# FetchContent, `cmake --install --prefix ...`).
 install(TARGETS tiBackupLib
-    LIBRARY DESTINATION /usr/lib
+    EXPORT tiBackupLibTargets
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
+# Public headers, mirroring the tibackuplib-dev layout: include/tibackuplib/{,obj,workers}
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/"
+    DESTINATION include/tibackuplib
+    FILES_MATCHING
+        PATTERN "*.h"
+        PATTERN "build*" EXCLUDE
+        PATTERN "obj-*" EXCLUDE
+        PATTERN ".git" EXCLUDE
+        PATTERN "cmake" EXCLUDE
+)
+
+install(EXPORT tiBackupLibTargets
+    FILE tiBackupLibTargets.cmake
+    NAMESPACE tiBackupLib::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/tiBackupLib
+)
+
+configure_package_config_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/tiBackupLibConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/tiBackupLibConfig.cmake"
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/tiBackupLib
+)
+
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/tiBackupLibConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/tiBackupLibConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/tiBackupLibConfigVersion.cmake"
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/tiBackupLib
 )

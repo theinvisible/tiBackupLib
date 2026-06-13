@@ -1,0 +1,49 @@
+name: release
+
+# Variant A: build the Debian packages (tibackuplib + tibackuplib-dev) and
+# publish them as release assets, so consumers can install a pinned version.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  debian-packages:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install packaging dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            devscripts debhelper cmake \
+            qt6-base-dev qt6-base-dev-tools \
+            libpoco-dev libudev-dev libblkid-dev uuid-dev \
+            rsync cryptsetup
+
+      - name: Build Debian packages
+        run: |
+          mkdir -p artifacts
+          # headers package (separate source package under tibackuplib-dev/)
+          ( cd tibackuplib-dev && debuild -eDEB_BUILD_OPTIONS="parallel=$(nproc)" -us -uc )
+          mv tibackuplib-dev_*.deb artifacts/
+          # runtime library package
+          debuild -eDEB_BUILD_OPTIONS="parallel=$(nproc)" -us -uc
+          mv ../tibackuplib_*.deb artifacts/
+          ls -l artifacts/
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: debian-packages
+          path: artifacts/*.deb
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.deb
