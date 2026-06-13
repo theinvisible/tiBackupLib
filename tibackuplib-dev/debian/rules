@@ -6,9 +6,11 @@
 override_dh_auto_install:
 	mkdir -p debian/tibackuplib-dev/usr/include/tibackuplib/obj
 	mkdir -p debian/tibackuplib-dev/usr/include/tibackuplib/workers
+	mkdir -p debian/tibackuplib-dev/usr/lib/cmake/tiBackupLib
 	cp -a ../*.h debian/tibackuplib-dev/usr/include/tibackuplib/.
 	cp -a ../obj/*.h debian/tibackuplib-dev/usr/include/tibackuplib/obj/.
 	cp -a ../workers/*.h debian/tibackuplib-dev/usr/include/tibackuplib/workers/.
+	cp -a ../cmake/tiBackupLibConfig.cmake debian/tibackuplib-dev/usr/lib/cmake/tiBackupLib/.
 
 override_dh_builddeb:
 	dh_builddeb -- -Zxz

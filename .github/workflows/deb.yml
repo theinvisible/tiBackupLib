@@ -1,12 +1,13 @@
-name: release
+name: deb
 
-# Variant A: build the Debian packages (tibackuplib + tibackuplib-dev) and
-# publish them as release assets, so consumers can install a pinned version.
+# Build the Debian packages (tibackuplib + tibackuplib-dev) on dev (master)
+# pushes and on release tags. Every build uploads the .deb files as workflow
+# artifacts; release tags additionally attach them to the GitHub Release.
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [master]
+    tags: ['v*']
   workflow_dispatch:
 
 jobs:
@@ -36,10 +37,10 @@ jobs:
           mv ../tibackuplib_*.deb artifacts/
           ls -l artifacts/
 
-      - name: Upload build artifacts
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: debian-packages
+          name: tibackuplib-deb
           path: artifacts/*.deb
 
       - name: Attach to GitHub Release

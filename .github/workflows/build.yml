@@ -4,9 +4,6 @@ name: build-check
 # tags. The installable .deb release artifacts are produced by release.yml on tags.
 
 on:
-  push:
-    branches: [master]
-    tags: ['v*']
   pull_request:
   workflow_dispatch:
 

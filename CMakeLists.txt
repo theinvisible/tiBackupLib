@@ -68,48 +68,26 @@ target_link_libraries(tiBackupLib
         blkid
 )
 
-include(GNUInstallDirs)
-include(CMakePackageConfigHelpers)
-
-# Note: the Debian package installs the .so manually via debian/rules; this
-# install/export path is used by find_package() consumers (CI build-checks,
-# FetchContent, `cmake --install --prefix ...`).
+# Install layout matches the Debian package (prefix /usr): the runtime .so under
+# lib/, public headers under include/tibackuplib/, and a relocatable CMake package
+# config under lib/cmake/tiBackupLib/ so consumers can find_package(tiBackupLib).
+# The Debian -dev package ships the same cmake/tiBackupLibConfig.cmake (see
+# tibackuplib-dev/debian/rules); the .so is installed by the main debian/rules.
 install(TARGETS tiBackupLib
-    EXPORT tiBackupLibTargets
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION lib
 )
 
-# Public headers, mirroring the tibackuplib-dev layout: include/tibackuplib/{,obj,workers}
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/"
     DESTINATION include/tibackuplib
     FILES_MATCHING
         PATTERN "*.h"
         PATTERN "build*" EXCLUDE
+        PATTERN "cmake-build*" EXCLUDE
         PATTERN "obj-*" EXCLUDE
         PATTERN ".git" EXCLUDE
         PATTERN "cmake" EXCLUDE
 )
 
-install(EXPORT tiBackupLibTargets
-    FILE tiBackupLibTargets.cmake
-    NAMESPACE tiBackupLib::
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/tiBackupLib
-)
-
-configure_package_config_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/tiBackupLibConfig.cmake.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/tiBackupLibConfig.cmake"
-    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/tiBackupLib
-)
-
-write_basic_package_version_file(
-    "${CMAKE_CURRENT_BINARY_DIR}/tiBackupLibConfigVersion.cmake"
-    VERSION ${PROJECT_VERSION}
-    COMPATIBILITY SameMajorVersion
-)
-
-install(FILES
-    "${CMAKE_CURRENT_BINARY_DIR}/tiBackupLibConfig.cmake"
-    "${CMAKE_CURRENT_BINARY_DIR}/tiBackupLibConfigVersion.cmake"
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/tiBackupLib
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/cmake/tiBackupLibConfig.cmake"
+    DESTINATION lib/cmake/tiBackupLib
 )
