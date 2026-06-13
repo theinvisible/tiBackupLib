@@ -29,11 +29,13 @@ jobs:
       - name: Build Debian packages
         run: |
           mkdir -p artifacts
+          # The packages carry a Debian revision but ship no .orig tarball, so
+          # debuild prompts "continue anyway?"; answer it non-interactively.
           # headers package (separate source package under tibackuplib-dev/)
-          ( cd tibackuplib-dev && debuild -eDEB_BUILD_OPTIONS="parallel=$(nproc)" -us -uc )
+          ( cd tibackuplib-dev && echo "y" | debuild -eDEB_BUILD_OPTIONS="parallel=$(nproc)" -us -uc )
           mv tibackuplib-dev_*.deb artifacts/
           # runtime library package
-          debuild -eDEB_BUILD_OPTIONS="parallel=$(nproc)" -us -uc
+          echo "y" | debuild -eDEB_BUILD_OPTIONS="parallel=$(nproc)" -us -uc
           mv ../tibackuplib_*.deb artifacts/
           ls -l artifacts/
 
