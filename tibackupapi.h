@@ -17,7 +17,14 @@ public:
         API_CMD_DISK_GET_PARTITION_BY_DEVNAME_UUID,
         API_CMD_DISK_GET_PARTITION_BY_UUID,
         API_CMD_PART_MOUNT,
-        API_CMD_BACKUP_STATUS
+        API_CMD_BACKUP_STATUS,
+        API_CMD_CONF_SET_MAIN,
+        API_CMD_JOB_SAVE,
+        API_CMD_JOB_DELETE,
+        API_CMD_JOB_RENAME,
+        API_CMD_PBS_SAVE,
+        API_CMD_PBS_DELETE,
+        API_CMD_SCRIPT_SAVE
     };
 
     enum API_VAR {
@@ -26,7 +33,16 @@ public:
         API_VAR_DEVNAME,
         API_VAR_PART_UUID,
         API_VAR_JOB_LUKS_TYPE,
-        API_VAR_JOB_LUKS_FILEPATH
+        API_VAR_JOB_LUKS_FILEPATH,
+        API_VAR_JOB_OLDNAME,
+        API_VAR_JOB_NEWNAME,
+        API_VAR_PBS_UUID,
+        API_VAR_SCRIPT_PATH
+    };
+
+    enum API_RESULT {
+        API_RESULT_OK = 0,
+        API_RESULT_ERROR = 1
     };
 
 signals:

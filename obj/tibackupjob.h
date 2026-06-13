@@ -27,6 +27,7 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 #include <QString>
 #include <QHash>
 #include <QMultiHash>
+#include <QDataStream>
 
 #include "devicedisk.h"
 #include "backupmanager.h"
@@ -103,5 +104,8 @@ public:
     void startBackupThread(backupManager *manager);
     void startBackup(DeviceDiskPartition *part);
 };
+
+QDataStream &operator<<(QDataStream &ds, const tiBackupJob &obj);
+QDataStream &operator>>(QDataStream &ds, tiBackupJob &obj);
 
 #endif // TIBACKUPJOB_H

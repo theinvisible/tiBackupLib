@@ -670,3 +670,60 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
 
     lib.umountPartition(part);
 }
+
+QDataStream &operator<<(QDataStream &ds, const tiBackupJob &obj)
+{
+    ds << obj.name << obj.device << obj.partition_uuid;
+
+    // backupdirs is a QMultiHash: stream as count + key/value pairs to keep all values
+    ds << static_cast<qint32>(obj.backupdirs.size());
+    for(auto it = obj.backupdirs.cbegin(); it != obj.backupdirs.cend(); ++it)
+        ds << it.key() << it.value();
+
+    ds << obj.delete_add_file_on_dest << obj.start_backup_on_hotplug
+       << obj.save_log << obj.compare_via_checksum;
+    ds << obj.notify << obj.notifyRecipients;
+    ds << obj.scriptBeforeBackup << obj.scriptAfterBackup;
+    ds << static_cast<qint32>(obj.intervalType) << obj.intervalTime << static_cast<qint32>(obj.intervalDay);
+    ds << static_cast<qint32>(obj.encLUKSType) << obj.encLUKSFilePath;
+    ds << obj.pbs << obj.pbs_server_uuid << obj.pbs_server_storage;
+    ds << obj.pbs_backup_ids;
+    ds << obj.pbs_dest_folder;
+
+    return ds;
+}
+
+QDataStream &operator>>(QDataStream &ds, tiBackupJob &obj)
+{
+    ds >> obj.name >> obj.device >> obj.partition_uuid;
+
+    obj.backupdirs.clear();
+    qint32 dirCount = 0;
+    ds >> dirCount;
+    for(qint32 i = 0; i < dirCount; ++i)
+    {
+        QString key, value;
+        ds >> key >> value;
+        obj.backupdirs.insert(key, value);
+    }
+
+    ds >> obj.delete_add_file_on_dest >> obj.start_backup_on_hotplug
+       >> obj.save_log >> obj.compare_via_checksum;
+    ds >> obj.notify >> obj.notifyRecipients;
+    ds >> obj.scriptBeforeBackup >> obj.scriptAfterBackup;
+
+    qint32 intervalType = 0, intervalDay = 0;
+    ds >> intervalType >> obj.intervalTime >> intervalDay;
+    obj.intervalType = static_cast<tiBackupJobInterval>(intervalType);
+    obj.intervalDay = intervalDay;
+
+    qint32 encLUKSType = 0;
+    ds >> encLUKSType >> obj.encLUKSFilePath;
+    obj.encLUKSType = static_cast<tiBackupEncLUKS>(encLUKSType);
+
+    ds >> obj.pbs >> obj.pbs_server_uuid >> obj.pbs_server_storage;
+    ds >> obj.pbs_backup_ids;
+    ds >> obj.pbs_dest_folder;
+
+    return ds;
+}

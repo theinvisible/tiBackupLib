@@ -278,3 +278,271 @@ backupManager::backupStatus ipcClient::getBackupStatus(const QString &jobname)
 
     return static_cast<backupManager::backupStatus>(status);
 }
+
+ipcClient::STATUS_ANSWER ipcClient::setMainConf(const QHash<QString, QString> &values)
+{
+    ipcClient::STATUS_ANSWER ret;
+
+    QLocalSocket *apiClient = new QLocalSocket(this);
+    apiClient->connectToServer(tibackup_config::api_sock_name);
+    if(apiClient->waitForConnected(1000))
+    {
+        QByteArray block;
+        QDataStream out(&block, QIODevice::WriteOnly);
+        out.setVersion(tibackup_config::ipc_version);
+        QHash<tiBackupApi::API_VAR, QString> apiData;
+        apiData[tiBackupApi::API_VAR::API_VAR_CMD] = QString::number(tiBackupApi::API_CMD::API_CMD_CONF_SET_MAIN);
+        out << apiData;
+        out << values;
+
+        apiClient->write(block);
+        apiClient->flush();
+
+        apiClient->waitForReadyRead(5000);
+        QDataStream in(apiClient);
+        in.setVersion(tibackup_config::ipc_version);
+        qint32 rc = tiBackupApi::API_RESULT_ERROR;
+        in >> rc;
+        ret.status = (rc == tiBackupApi::API_RESULT_OK) ? STATUS::STATUS_OK : STATUS::STATUS_ERROR;
+    }
+    else
+    {
+        ret.status = STATUS::STATUS_CONNECT_FAILED;
+        ret.msg = apiClient->errorString();
+    }
+
+    apiClient->close();
+    apiClient->disconnect();
+
+    return ret;
+}
+
+ipcClient::STATUS_ANSWER ipcClient::saveJob(const tiBackupJob &job)
+{
+    ipcClient::STATUS_ANSWER ret;
+
+    QLocalSocket *apiClient = new QLocalSocket(this);
+    apiClient->connectToServer(tibackup_config::api_sock_name);
+    if(apiClient->waitForConnected(1000))
+    {
+        QByteArray block;
+        QDataStream out(&block, QIODevice::WriteOnly);
+        out.setVersion(tibackup_config::ipc_version);
+        QHash<tiBackupApi::API_VAR, QString> apiData;
+        apiData[tiBackupApi::API_VAR::API_VAR_CMD] = QString::number(tiBackupApi::API_CMD::API_CMD_JOB_SAVE);
+        out << apiData;
+        out << job;
+
+        apiClient->write(block);
+        apiClient->flush();
+
+        apiClient->waitForReadyRead(5000);
+        QDataStream in(apiClient);
+        in.setVersion(tibackup_config::ipc_version);
+        qint32 rc = tiBackupApi::API_RESULT_ERROR;
+        in >> rc;
+        ret.status = (rc == tiBackupApi::API_RESULT_OK) ? STATUS::STATUS_OK : STATUS::STATUS_ERROR;
+    }
+    else
+    {
+        ret.status = STATUS::STATUS_CONNECT_FAILED;
+        ret.msg = apiClient->errorString();
+    }
+
+    apiClient->close();
+    apiClient->disconnect();
+
+    return ret;
+}
+
+ipcClient::STATUS_ANSWER ipcClient::deleteJob(const QString &jobname)
+{
+    ipcClient::STATUS_ANSWER ret;
+
+    QLocalSocket *apiClient = new QLocalSocket(this);
+    apiClient->connectToServer(tibackup_config::api_sock_name);
+    if(apiClient->waitForConnected(1000))
+    {
+        QByteArray block;
+        QDataStream out(&block, QIODevice::WriteOnly);
+        out.setVersion(tibackup_config::ipc_version);
+        QHash<tiBackupApi::API_VAR, QString> apiData;
+        apiData[tiBackupApi::API_VAR::API_VAR_CMD] = QString::number(tiBackupApi::API_CMD::API_CMD_JOB_DELETE);
+        apiData[tiBackupApi::API_VAR::API_VAR_BACKUPJOB] = jobname;
+        out << apiData;
+
+        apiClient->write(block);
+        apiClient->flush();
+
+        apiClient->waitForReadyRead(5000);
+        QDataStream in(apiClient);
+        in.setVersion(tibackup_config::ipc_version);
+        qint32 rc = tiBackupApi::API_RESULT_ERROR;
+        in >> rc;
+        ret.status = (rc == tiBackupApi::API_RESULT_OK) ? STATUS::STATUS_OK : STATUS::STATUS_ERROR;
+    }
+    else
+    {
+        ret.status = STATUS::STATUS_CONNECT_FAILED;
+        ret.msg = apiClient->errorString();
+    }
+
+    apiClient->close();
+    apiClient->disconnect();
+
+    return ret;
+}
+
+ipcClient::STATUS_ANSWER ipcClient::renameJob(const QString &oldname, const QString &newname)
+{
+    ipcClient::STATUS_ANSWER ret;
+
+    QLocalSocket *apiClient = new QLocalSocket(this);
+    apiClient->connectToServer(tibackup_config::api_sock_name);
+    if(apiClient->waitForConnected(1000))
+    {
+        QByteArray block;
+        QDataStream out(&block, QIODevice::WriteOnly);
+        out.setVersion(tibackup_config::ipc_version);
+        QHash<tiBackupApi::API_VAR, QString> apiData;
+        apiData[tiBackupApi::API_VAR::API_VAR_CMD] = QString::number(tiBackupApi::API_CMD::API_CMD_JOB_RENAME);
+        apiData[tiBackupApi::API_VAR::API_VAR_JOB_OLDNAME] = oldname;
+        apiData[tiBackupApi::API_VAR::API_VAR_JOB_NEWNAME] = newname;
+        out << apiData;
+
+        apiClient->write(block);
+        apiClient->flush();
+
+        apiClient->waitForReadyRead(5000);
+        QDataStream in(apiClient);
+        in.setVersion(tibackup_config::ipc_version);
+        qint32 rc = tiBackupApi::API_RESULT_ERROR;
+        in >> rc;
+        ret.status = (rc == tiBackupApi::API_RESULT_OK) ? STATUS::STATUS_OK : STATUS::STATUS_ERROR;
+    }
+    else
+    {
+        ret.status = STATUS::STATUS_CONNECT_FAILED;
+        ret.msg = apiClient->errorString();
+    }
+
+    apiClient->close();
+    apiClient->disconnect();
+
+    return ret;
+}
+
+ipcClient::STATUS_ANSWER ipcClient::savePBServer(const PBServer &item)
+{
+    ipcClient::STATUS_ANSWER ret;
+
+    QLocalSocket *apiClient = new QLocalSocket(this);
+    apiClient->connectToServer(tibackup_config::api_sock_name);
+    if(apiClient->waitForConnected(1000))
+    {
+        QByteArray block;
+        QDataStream out(&block, QIODevice::WriteOnly);
+        out.setVersion(tibackup_config::ipc_version);
+        QHash<tiBackupApi::API_VAR, QString> apiData;
+        apiData[tiBackupApi::API_VAR::API_VAR_CMD] = QString::number(tiBackupApi::API_CMD::API_CMD_PBS_SAVE);
+        out << apiData;
+        out << item;
+
+        apiClient->write(block);
+        apiClient->flush();
+
+        apiClient->waitForReadyRead(5000);
+        QDataStream in(apiClient);
+        in.setVersion(tibackup_config::ipc_version);
+        qint32 rc = tiBackupApi::API_RESULT_ERROR;
+        in >> rc;
+        ret.status = (rc == tiBackupApi::API_RESULT_OK) ? STATUS::STATUS_OK : STATUS::STATUS_ERROR;
+    }
+    else
+    {
+        ret.status = STATUS::STATUS_CONNECT_FAILED;
+        ret.msg = apiClient->errorString();
+    }
+
+    apiClient->close();
+    apiClient->disconnect();
+
+    return ret;
+}
+
+ipcClient::STATUS_ANSWER ipcClient::deletePBServer(const QString &uuid)
+{
+    ipcClient::STATUS_ANSWER ret;
+
+    QLocalSocket *apiClient = new QLocalSocket(this);
+    apiClient->connectToServer(tibackup_config::api_sock_name);
+    if(apiClient->waitForConnected(1000))
+    {
+        QByteArray block;
+        QDataStream out(&block, QIODevice::WriteOnly);
+        out.setVersion(tibackup_config::ipc_version);
+        QHash<tiBackupApi::API_VAR, QString> apiData;
+        apiData[tiBackupApi::API_VAR::API_VAR_CMD] = QString::number(tiBackupApi::API_CMD::API_CMD_PBS_DELETE);
+        apiData[tiBackupApi::API_VAR::API_VAR_PBS_UUID] = uuid;
+        out << apiData;
+
+        apiClient->write(block);
+        apiClient->flush();
+
+        apiClient->waitForReadyRead(5000);
+        QDataStream in(apiClient);
+        in.setVersion(tibackup_config::ipc_version);
+        qint32 rc = tiBackupApi::API_RESULT_ERROR;
+        in >> rc;
+        ret.status = (rc == tiBackupApi::API_RESULT_OK) ? STATUS::STATUS_OK : STATUS::STATUS_ERROR;
+    }
+    else
+    {
+        ret.status = STATUS::STATUS_CONNECT_FAILED;
+        ret.msg = apiClient->errorString();
+    }
+
+    apiClient->close();
+    apiClient->disconnect();
+
+    return ret;
+}
+
+ipcClient::STATUS_ANSWER ipcClient::saveScript(const QString &path, const QString &content)
+{
+    ipcClient::STATUS_ANSWER ret;
+
+    QLocalSocket *apiClient = new QLocalSocket(this);
+    apiClient->connectToServer(tibackup_config::api_sock_name);
+    if(apiClient->waitForConnected(1000))
+    {
+        QByteArray block;
+        QDataStream out(&block, QIODevice::WriteOnly);
+        out.setVersion(tibackup_config::ipc_version);
+        QHash<tiBackupApi::API_VAR, QString> apiData;
+        apiData[tiBackupApi::API_VAR::API_VAR_CMD] = QString::number(tiBackupApi::API_CMD::API_CMD_SCRIPT_SAVE);
+        apiData[tiBackupApi::API_VAR::API_VAR_SCRIPT_PATH] = path;
+        out << apiData;
+        out << content;
+
+        apiClient->write(block);
+        apiClient->flush();
+
+        apiClient->waitForReadyRead(5000);
+        QDataStream in(apiClient);
+        in.setVersion(tibackup_config::ipc_version);
+        qint32 rc = tiBackupApi::API_RESULT_ERROR;
+        in >> rc;
+        ret.status = (rc == tiBackupApi::API_RESULT_OK) ? STATUS::STATUS_OK : STATUS::STATUS_ERROR;
+    }
+    else
+    {
+        ret.status = STATUS::STATUS_CONNECT_FAILED;
+        ret.msg = apiClient->errorString();
+    }
+
+    apiClient->close();
+    apiClient->disconnect();
+
+    return ret;
+}

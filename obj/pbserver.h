@@ -2,6 +2,7 @@
 #define PBSERVER_H
 
 #include <QString>
+#include <QDataStream>
 
 class PBServer
 {
@@ -22,5 +23,8 @@ public:
 
     void genNewUuid();
 };
+
+QDataStream &operator<<(QDataStream &ds, const PBServer &obj);
+QDataStream &operator>>(QDataStream &ds, PBServer &obj);
 
 #endif // PBSERVER_H
