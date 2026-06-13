@@ -21,7 +21,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            devscripts debhelper cmake \
+            build-essential devscripts debhelper cmake \
             qt6-base-dev qt6-base-dev-tools \
             libpoco-dev libudev-dev libblkid-dev uuid-dev \
             rsync cryptsetup
