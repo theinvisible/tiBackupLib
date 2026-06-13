@@ -1,0 +1,31 @@
+name: build-check
+
+# Compile-check tiBackupLib on dev (master) pushes, pull requests and release
+# tags. The installable .deb release artifacts are produced by release.yml on tags.
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake \
+            qt6-base-dev qt6-base-dev-tools \
+            libpoco-dev libudev-dev libblkid-dev uuid-dev
+
+      - name: Build tiBackupLib
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j"$(nproc)"
