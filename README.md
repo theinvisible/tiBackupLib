@@ -38,8 +38,9 @@ tiBackup consists of three parts:
 
 ## Installation
 
-Pre-built Debian/Ubuntu packages are published via Cloudsmith. The library is
-pulled in automatically as a dependency of `tibackup`/`tibackupui`:
+Pre-built packages are published via Cloudsmith for **Debian 13 (trixie)**,
+**Ubuntu 24.04 (noble)** and **Ubuntu 26.04**. The library is pulled in
+automatically as a dependency of `tibackup`/`tibackupui`:
 
 ```bash
 curl -1sLf 'https://dl.cloudsmith.io/public/theinvisible/tibackup/setup.deb.sh' | sudo -E bash

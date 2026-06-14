@@ -1,8 +1,17 @@
 name: deb
 
-# Build the Debian packages (tibackuplib + tibackuplib-dev) on dev (master)
-# pushes and on release tags. Every build uploads the .deb files as workflow
-# artifacts; release tags additionally attach them to the GitHub Release.
+# Build the Debian packages (tibackuplib + tibackuplib-dev) for every supported
+# distribution and publish release tags to Cloudsmith.
+#
+#   * Pushes to master and version tags build the packages once per target distro
+#     (Debian 13, Ubuntu 24.04, Ubuntu 26.04) inside the matching container, so
+#     dh_shlibdeps pins distro-correct dependency versions and the Qt6/libc ABI
+#     matches the target. Every build uploads the .deb files as workflow artifacts.
+#   * Only version tags (v*) are published to the Cloudsmith apt repository, filed
+#     under <distro>/<codename> (auto-detected from /etc/os-release), and attached
+#     to the GitHub Release. Master builds stay as downloadable artifacts only.
+#
+# Requires the repository secret CLOUDSMITH_API_KEY for the publish step.
 
 on:
   push:
@@ -10,21 +19,40 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
+env:
+  CLOUDSMITH_REPO: theinvisible/tibackup
+
 jobs:
   debian-packages:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - debian:13
+          - ubuntu:24.04
+          - ubuntu:26.04
+    container:
+      image: ${{ matrix.image }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install packaging dependencies
+      - name: Bootstrap container & install packaging dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential devscripts debhelper cmake \
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates git \
+            build-essential fakeroot devscripts debhelper cmake \
             qt6-base-dev qt6-base-dev-tools \
             libpoco-dev libudev-dev libblkid-dev uuid-dev \
             rsync cryptsetup
+
+      - name: Detect distribution
+        run: |
+          . /etc/os-release
+          echo "DISTRO_ID=${ID}" >> "$GITHUB_ENV"
+          echo "CODENAME=${VERSION_CODENAME}" >> "$GITHUB_ENV"
+
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Build Debian packages
         run: |
@@ -37,13 +65,26 @@ jobs:
           # runtime library package
           echo "y" | debuild -eDEB_BUILD_OPTIONS="parallel=$(nproc)" -us -uc
           mv ../tibackuplib_*.deb artifacts/
+          # disambiguate filenames per distro (same version lives in several dists)
+          ( cd artifacts && for f in *.deb; do arch="${f##*_}"; rest="${f%_*}"; mv "$f" "${rest}_${CODENAME}_${arch}"; done )
           ls -l artifacts/
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: tibackuplib-deb
+          name: tibackuplib-deb-${{ env.CODENAME }}
           path: artifacts/*.deb
+
+      - name: Publish to Cloudsmith
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
+        run: |
+          apt-get install -y --no-install-recommends python3-pip
+          pip3 install --break-system-packages --upgrade cloudsmith-cli
+          for deb in artifacts/*.deb; do
+            cloudsmith push deb "${CLOUDSMITH_REPO}/${DISTRO_ID}/${CODENAME}" "$deb"
+          done
 
       - name: Attach to GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
