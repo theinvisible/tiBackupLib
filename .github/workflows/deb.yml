@@ -20,7 +20,7 @@ on:
   workflow_dispatch:
 
 env:
-  CLOUDSMITH_REPO: theinvisible/tibackup
+  CLOUDSMITH_REPO: ti-9x5p/tibackup
 
 jobs:
   debian-packages:
