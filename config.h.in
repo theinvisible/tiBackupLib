@@ -21,6 +21,10 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 
 */
 
+// NOTE: this file is generated from config.h.in by CMake. The single source of
+// truth for the version is the project(... VERSION ...) line in CMakeLists.txt;
+// do not edit the generated config.h directly.
+
 #ifndef CONFIG_H
 #define CONFIG_H
 
@@ -29,7 +33,7 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 
 namespace tibackup_config
 {
-    [[maybe_unused]] static constexpr QLatin1String version{"0.7.7"};
+    [[maybe_unused]] static constexpr QLatin1String version{"@PROJECT_VERSION@"};
     [[maybe_unused]] static constexpr QLatin1String file_main{"/etc/tibackup/main.conf"};
     [[maybe_unused]] static constexpr QLatin1String mount_root{"/mnt"};
     [[maybe_unused]] static constexpr QLatin1String initd_default{"/etc/init.d/tibackup"};

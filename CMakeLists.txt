@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(tiBackupLib VERSION 0.7.7 LANGUAGES CXX)
+# Single source of truth for the version of both tiBackupLib and the tiBackup
+# server: the server reads it at runtime through the generated config.h
+# (tibackup_config::version), so the version is maintained only on this line.
+project(tiBackupLib VERSION 0.8.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -8,6 +11,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(Qt6 REQUIRED COMPONENTS Core Network)
 
 qt_standard_project_setup()
+
+# Generate config.h from config.h.in, substituting @PROJECT_VERSION@ with the
+# project() version above. The generated header lives in the build tree; it is
+# compiled in and installed as a public header (see install(FILES ...) below).
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/config.h.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/config.h"
+    @ONLY
+)
 
 qt_add_library(tiBackupLib SHARED
     tibackuplib.cpp
@@ -23,7 +35,7 @@ qt_add_library(tiBackupLib SHARED
     tibackupservice.cpp
     tibackupservice.h
     tibackuplib_global.h
-    config.h
+    "${CMAKE_CURRENT_BINARY_DIR}/config.h"
     obj/devicedisk.cpp
     obj/devicedisk.h
     obj/pbserver.cpp
@@ -40,6 +52,7 @@ qt_add_library(tiBackupLib SHARED
 
 target_include_directories(tiBackupLib PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>  # generated config.h
     $<INSTALL_INTERFACE:include/tibackuplib>
 )
 
@@ -82,6 +95,12 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/"
         PATTERN "obj-*" EXCLUDE
         PATTERN ".git" EXCLUDE
         PATTERN "cmake" EXCLUDE
+)
+
+# config.h is generated (not in the source tree), so install it explicitly
+# alongside the other public headers.
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/config.h"
+    DESTINATION include/tibackuplib
 )
 
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/cmake/tiBackupLibConfig.cmake"
