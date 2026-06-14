@@ -11,19 +11,23 @@ encryption, pre/post scripts, e-mail notifications and Proxmox Backup Server
 integration.
 
 > **This repository** contains `tiBackupLib`, the shared C++/Qt6 library providing
-> configuration handling, the IPC protocol, device/partition discovery and the
-> backup engine used by **both** the daemon and the GUI. It is a build- and
-> run-time dependency of the other two components — see [Architecture](#architecture).
+> configuration handling, device/partition discovery and the backup engine used by
+> the daemon. It is a build- and run-time dependency of the `tiBackup` daemon — see
+> [Architecture](#architecture).
 
 ## Architecture
 
-tiBackup consists of three parts:
+tiBackup consists of two parts:
 
 | Component | Role |
 |-----------|------|
-| **[tiBackupLib](https://github.com/theinvisible/tiBackupLib)** | Shared core library (config, IPC, device handling, backup engine). |
-| **[tiBackup](https://github.com/theinvisible/tiBackup)** | Background daemon (`tibackupd`), runs as **root**, performs the actual backups and exposes an IPC + HTTP status API. |
-| **[tiBackupUi](https://github.com/theinvisible/tiBackupUi)** | Qt Widgets GUI to configure jobs and settings; runs **unprivileged** and talks to the daemon over IPC. |
+| **[tiBackupLib](https://github.com/theinvisible/tiBackupLib)** | Shared core library (config, device/partition handling, backup engine). |
+| **[tiBackup](https://github.com/theinvisible/tiBackup)** | Background daemon (`tibackupd`), runs as **root**, performs the actual backups and **serves the built-in web UI**. |
+
+The daemon links this library and calls it directly in-process to serve a modern,
+login-protected **web interface** (Qt `QHttpServer` + `QWebSockets`) — there is no
+separate GUI process and no IPC layer. The former Qt Widgets client (`tiBackupUi`)
+has been **replaced** by that built-in web UI.
 
 ## Features
 
@@ -77,8 +81,8 @@ find_package(tiBackupLib CONFIG REQUIRED)
 target_link_libraries(your_target PRIVATE tiBackupLib::tiBackupLib)
 ```
 
-> **Tip:** when the three repositories are checked out next to each other, the
-> daemon and GUI builds fall back to building `tiBackupLib` from this source tree
+> **Tip:** when the two repositories are checked out next to each other, the
+> `tiBackup` daemon build falls back to building `tiBackupLib` from this source tree
 > automatically, so no install step is required for local development.
 
 ## License

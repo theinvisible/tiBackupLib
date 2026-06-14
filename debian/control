@@ -1,13 +1,16 @@
 Source: tibackuplib
-Section: admin
+Section: libs
 Priority: optional
-Maintainer: Rene Hadler <rene@iksdeh.at>
-Build-Depends: debhelper (>= 8.0.0)
+Maintainer: Rene Hadler <rene@hadler.me>
+Build-Depends: debhelper-compat (= 13), cmake, qt6-base-dev, qt6-base-dev-tools, libpoco-dev, libudev-dev, libblkid-dev, uuid-dev
+Standards-Version: 4.7.0
+Homepage: https://github.com/theinvisible/tiBackupLib
+Rules-Requires-Root: no
 
 Package: tibackuplib
+Section: libs
 Architecture: amd64
-Depends: ${shlibs:Depends}, rsync, cryptsetup
-Conflicts:
-Replaces:
-Provides: tibackuplib
-Description: Main library for tibackup program
+Depends: ${shlibs:Depends}, ${misc:Depends}, rsync, cryptsetup
+Description: core library for the tiBackup backup system
+ Shared C++/Qt6 library providing configuration handling, device and partition
+ discovery, and the rsync/LUKS backup engine used by the tiBackup daemon.

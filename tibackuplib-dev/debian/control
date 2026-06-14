@@ -1,13 +1,16 @@
 Source: tibackuplib-dev
-Section: admin
+Section: libdevel
 Priority: optional
-Maintainer: Rene Hadler <rene.hadler@iteas.at>
-Build-Depends: debhelper (>= 8.0.0)
+Maintainer: Rene Hadler <rene@hadler.me>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.7.0
+Homepage: https://github.com/theinvisible/tiBackupLib
+Rules-Requires-Root: no
 
 Package: tibackuplib-dev
+Section: libdevel
 Architecture: amd64
-Depends: ${shlibs:Depends}, tibackuplib, libblkid-dev, libudev-dev
-Conflicts:
-Replaces:
-Provides: tibackuplib-dev
-Description: Dev files for tibackup program
+Depends: ${misc:Depends}, tibackuplib (>= 0.8.0), libblkid-dev, libudev-dev
+Description: development files for the tiBackup core library
+ Headers and CMake package configuration for building software against
+ tiBackupLib, the core library of the tiBackup backup system.
