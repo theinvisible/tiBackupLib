@@ -14,8 +14,6 @@ qt_add_library(tiBackupLib SHARED
     tibackuplib.h
     backupmanager.cpp
     backupmanager.h
-    ipcclient.cpp
-    ipcclient.h
     pbsclient.cpp
     pbsclient.h
     tibackupdiskobserver.cpp
@@ -24,8 +22,6 @@ qt_add_library(tiBackupLib SHARED
     ticonf.h
     tibackupservice.cpp
     tibackupservice.h
-    tibackupapi.cpp
-    tibackupapi.h
     tibackuplib_global.h
     config.h
     obj/devicedisk.cpp

@@ -30,6 +30,10 @@ public slots:
     void onBackupFinished(const QString &name);
 
 signals:
+    // Emitted whenever a job's live status changes (used by the web layer to push
+    // updates over WebSocket). backupStatus is registered as a metatype so this
+    // works across thread boundaries (queued connections).
+    void statusChanged(const QString &name, backupStatus status);
 
 private:
     std::unique_ptr<QHash<QString, backupStatus>> backups;

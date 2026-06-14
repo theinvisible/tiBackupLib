@@ -4,6 +4,9 @@
 
 backupManager::backupManager(QObject *parent) : QObject(parent)
 {
+    // Allow statusChanged() to cross thread boundaries (worker thread -> web layer).
+    qRegisterMetaType<backupManager::backupStatus>("backupManager::backupStatus");
+
     backups = std::make_unique<QHash<QString, backupStatus>>();
     backupjobs = std::make_unique<tiConfBackupJobs>();
     backupjobs->readBackupJobs();
@@ -28,6 +31,7 @@ bool backupManager::startBackup(const QString &name)
         qWarning() << "backupManager::startBackup() -> Backupjob " << name << " is starting now";
 
         (*backups)[name] = backupStatus::running;
+        emit statusChanged(name, backupStatus::running);
         job->startBackupThread(this);
         return true;
     }
@@ -52,4 +56,5 @@ backupManager::backupStatus backupManager::getBackupStatus(const QString &name)
 void backupManager::onBackupFinished(const QString &name)
 {
     (*backups)[name] = backupStatus::finished;
+    emit statusChanged(name, backupStatus::finished);
 }
