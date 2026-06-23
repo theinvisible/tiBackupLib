@@ -362,14 +362,19 @@ QString TiBackupLib::runCommandwithOutput(const QString &cmd, int timeout)
     return proc.readLine();
 }
 
-int TiBackupLib::runCommandwithReturnCode(const QString &cmd, int timeout)
+int TiBackupLib::runCommandwithReturnCode(const QString &cmd, int timeout, QString *output)
 {
     qDebug() << "TiBackupLib::runCommandwithReturnCode() -> run command::" << cmd;
 
     QProcess proc;
+    if(output != nullptr)
+        proc.setProcessChannelMode(QProcess::MergedChannels);
     proc.startCommand(cmd, QIODevice::ReadOnly);
     proc.waitForStarted(timeout);
     proc.waitForFinished(timeout);
+
+    if(output != nullptr)
+        *output = QString::fromUtf8(proc.readAll());
 
     return proc.exitCode();
 }

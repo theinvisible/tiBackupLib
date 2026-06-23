@@ -59,7 +59,9 @@ public:
     QString getMountPathSrc(DeviceDiskPartition *dev);
 
     QString runCommandwithOutput(const QString &cmd, int timeout = 50000);
-    int runCommandwithReturnCode(const QString &cmd, int timeout = 50000);
+    // When output != nullptr, the process' merged stdout+stderr is captured into
+    // *output (so callers like the rsync backup can log the actual error text).
+    int runCommandwithReturnCode(const QString &cmd, int timeout = 50000, QString *output = nullptr);
     int runCommandwithReturnCodePipe(const QString &cmd, int timeout = 50000);
 
     static QString convertPath2Generic(const QString &path, const QString &mountdir);

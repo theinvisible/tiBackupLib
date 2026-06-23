@@ -25,6 +25,7 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 
 #include <QDebug>
 #include <QDir>
+#include <QStorageInfo>
 #include <QDateTime>
 #include <QJsonObject>
 #include <QJsonArray>
@@ -212,16 +213,37 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         if(!destdir.exists())
             destdir.mkpath(dest);
 
-        log.ret_code = lib.runCommandwithReturnCode(QString("rsync -a %1 \"%2\" \"%3\"").arg(backupFArgs, src, dest), -1);
+        // FAT/exFAT can't store Unix permissions/owner/group, so a plain "rsync -a"
+        // exits 23 ("some files/attrs were not transferred") even though the file
+        // data copied fine. Detect such destinations and drop the unsupported
+        // attribute-preservation flags (--modify-window=1 absorbs FAT's 2s time
+        // granularity so unchanged files aren't re-copied every run).
+        QString rsyncOpts = QStringLiteral("-a");
+        const QByteArray fsType = QStorageInfo(dest).fileSystemType().toLower();
+        if(fsType == "vfat" || fsType == "msdos" || fsType == "fat" || fsType == "exfat")
+        {
+            rsyncOpts = QStringLiteral("-a --no-perms --no-owner --no-group --modify-window=1");
+            detailLog << QString("Destination filesystem '%1' has no POSIX attributes; "
+                                 "using FAT/exFAT-safe rsync options").arg(QString::fromUtf8(fsType)) << "\n";
+            detailLog.flush();
+        }
+
+        QString rsyncOutput;
+        log.ret_code = lib.runCommandwithReturnCode(
+            QString("rsync %1 %2 \"%3\" \"%4\"").arg(rsyncOpts, backupFArgs, src, dest), -1, &rsyncOutput);
         if(log.ret_code != 0)
         {
-            QString msg("RSYNC Backup failed (see detail log).");
-            detailLog << msg << "\n";
+            detailLog << QString("RSYNC Backup failed (rsync exit code %1):").arg(log.ret_code) << "\n";
+            if(!rsyncOutput.trimmed().isEmpty())
+                detailLog << rsyncOutput.trimmed() << "\n";
+            else
+                detailLog << "(rsync produced no output)" << "\n";
         }
         else
         {
-            QString msg("RSYNC Backup successful.");
-            detailLog << msg << "\n";
+            detailLog << "RSYNC Backup successful." << "\n";
+            if(!rsyncOutput.trimmed().isEmpty())
+                detailLog << rsyncOutput.trimmed() << "\n";
         }
         detailLog.flush();
         bakLogs << log;
