@@ -68,7 +68,7 @@ void tiConfMain::initMainConf()
         scriptsdir_path.mkpath(scripts_dir);
 
         QSettings conf(tibackup_config::file_main, QSettings::IniFormat);
-        conf.setValue("main/debug", true);
+        conf.setValue("main/debug", false);
         conf.setValue("paths/backupjobs", backupjobs_dir);
         conf.setValue("paths/pbservers", pbservers_dir);
         conf.setValue("paths/logs", logs_dir);
