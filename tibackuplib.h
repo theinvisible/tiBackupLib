@@ -27,6 +27,8 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 #include "tibackuplib_global.h"
 
 #include <libudev.h>
+#include <QStringList>
+#include <QByteArray>
 #include "obj/devicedisk.h"
 #include "obj/tibackupjob.h"
 
@@ -62,6 +64,16 @@ public:
     // When output != nullptr, the process' merged stdout+stderr is captured into
     // *output (so callers like the rsync backup can log the actual error text).
     int runCommandwithReturnCode(const QString &cmd, int timeout = 50000, QString *output = nullptr);
+    // argv form: the program and each argument are passed separately so no shell
+    // is involved and arguments can never be misparsed/injected (no quoting, no
+    // metacharacter expansion). Prefer this whenever any argument is data.
+    int runCommandwithReturnCode(const QString &program, const QStringList &args,
+                                 int timeout = 50000, QString *output = nullptr);
+    // Like the argv form but feeds `stdinData` to the child's standard input and
+    // closes it (used to hand secrets such as a LUKS passphrase to a tool without
+    // ever placing them on a shell command line). Returns the process exit code.
+    int runCommandwithReturnCode(const QString &program, const QStringList &args,
+                                 const QByteArray &stdinData, int timeout = 50000);
     int runCommandwithReturnCodePipe(const QString &cmd, int timeout = 50000);
 
     static QString convertPath2Generic(const QString &path, const QString &mountdir);

@@ -93,6 +93,16 @@ void tiConfMain::initMainConf()
     QString logs_dir = QString("%1/logs/%2").arg(conf_main_dir.absolutePath(), tibackup_config::backup_detail_folder);
     QDir logsdir_detail_path(logs_dir);
     logsdir_detail_path.mkpath(logs_dir);
+
+    // The config tree stores the web admin password hash plus the PBS/SMTP
+    // credentials, so confine it to root (0700 dir / 0600 file). Done on every
+    // construction so it also tightens pre-existing installs that QSettings had
+    // created world-readable under the daemon's default umask.
+    QFile::setPermissions(conf_main_dir.absolutePath(),
+                          QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
+    if(QFile::exists(tibackup_config::file_main))
+        QFile::setPermissions(tibackup_config::file_main,
+                              QFileDevice::ReadOwner | QFileDevice::WriteOwner);
 }
 
 QVariant tiConfMain::getValue(const QString &iniPath)
@@ -108,6 +118,10 @@ void tiConfMain::setValue(const QString &iniPath, const QVariant &val)
 void tiConfMain::sync()
 {
     settings->sync();
+    // Re-assert 0600 after each write: the file carries the web password hash and
+    // the (base64) SMTP password and must never be world-readable.
+    QFile::setPermissions(tibackup_config::file_main,
+                          QFileDevice::ReadOwner | QFileDevice::WriteOwner);
 }
 
 QString tiConfMain::getLogsDetailDir()
@@ -197,6 +211,9 @@ void tiConfBackupJobs::saveBackupJob(const tiBackupJob &job)
     f->endGroup();
 
     f->sync();
+
+    // May reference a LUKS keyfile path; keep job definitions root-only too.
+    QFile::setPermissions(filename, QFileDevice::ReadOwner | QFileDevice::WriteOwner);
 }
 
 void tiConfBackupJobs::readBackupJobs()
@@ -353,6 +370,9 @@ void tiConfPBServers::saveItem(const PBServer &item)
     f->endGroup();
 
     f->sync();
+
+    // Stores the PBS password and key passphrase in clear text — root only.
+    QFile::setPermissions(filename, QFileDevice::ReadOwner | QFileDevice::WriteOwner);
 }
 
 void tiConfPBServers::readItems()

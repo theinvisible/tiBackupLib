@@ -262,11 +262,19 @@ QString TiBackupLib::mountPartition(DeviceDiskPartition *part, tiBackupJob *job)
             break;
         }
 
-        runCommandwithReturnCodePipe(QString("echo '%1' | cryptsetup luksOpen %2 tibackup_enc_%3").arg(pass, part->name, part->uuid));
+        // Hand the passphrase to cryptsetup over stdin (terminated by a newline,
+        // exactly like the previous "echo '...' |" did) instead of building a
+        // shell command. This removes the bash -c invocation entirely, so a
+        // passphrase containing quotes or shell metacharacters can no longer
+        // break out and execute arbitrary commands as root.
+        runCommandwithReturnCode(QStringLiteral("cryptsetup"),
+                                 QStringList() << "luksOpen" << part->name
+                                               << QString("tibackup_enc_%1").arg(part->uuid),
+                                 pass.toUtf8() + '\n');
         mnt_src = getMountPathSrc(part);
     }
 
-    runCommandwithReturnCode(QString("mount %1 %2").arg(mnt_src, mount_dir));
+    runCommandwithReturnCode(QStringLiteral("mount"), QStringList() << mnt_src << mount_dir);
 
     return mount_dir;
 }
@@ -274,11 +282,12 @@ QString TiBackupLib::mountPartition(DeviceDiskPartition *part, tiBackupJob *job)
 void TiBackupLib::umountPartition(DeviceDiskPartition *part)
 {
     QString mount_dir = getMountDir(part);
-    runCommandwithReturnCode(QString("umount \"%1\"").arg(mount_dir), -1);
+    runCommandwithReturnCode(QStringLiteral("umount"), QStringList() << mount_dir, -1);
 
     if(part->type == "crypto_LUKS")
     {
-        runCommandwithReturnCode(QString("cryptsetup close tibackup_enc_%1").arg(part->uuid), -1);
+        runCommandwithReturnCode(QStringLiteral("cryptsetup"),
+                                 QStringList() << "close" << QString("tibackup_enc_%1").arg(part->uuid), -1);
     }
 }
 
@@ -375,6 +384,39 @@ int TiBackupLib::runCommandwithReturnCode(const QString &cmd, int timeout, QStri
 
     if(output != nullptr)
         *output = QString::fromUtf8(proc.readAll());
+
+    return proc.exitCode();
+}
+
+int TiBackupLib::runCommandwithReturnCode(const QString &program, const QStringList &args,
+                                          int timeout, QString *output)
+{
+    qDebug() << "TiBackupLib::runCommandwithReturnCode(argv) -> run::" << program << args;
+
+    QProcess proc;
+    if(output != nullptr)
+        proc.setProcessChannelMode(QProcess::MergedChannels);
+    proc.start(program, args, QIODevice::ReadOnly);
+    proc.waitForStarted(timeout);
+    proc.waitForFinished(timeout);
+
+    if(output != nullptr)
+        *output = QString::fromUtf8(proc.readAll());
+
+    return proc.exitCode();
+}
+
+int TiBackupLib::runCommandwithReturnCode(const QString &program, const QStringList &args,
+                                          const QByteArray &stdinData, int timeout)
+{
+    qDebug() << "TiBackupLib::runCommandwithReturnCode(argv,stdin) -> run::" << program << args;
+
+    QProcess proc;
+    proc.start(program, args, QIODevice::ReadWrite);
+    proc.waitForStarted(timeout);
+    proc.write(stdinData);
+    proc.closeWriteChannel();
+    proc.waitForFinished(timeout);
 
     return proc.exitCode();
 }

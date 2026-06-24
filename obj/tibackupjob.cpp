@@ -32,6 +32,7 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 #include <QTimeZone>
 #include <QProcess>
 #include <QProcessEnvironment>
+#include <QTemporaryFile>
 #include <QRegularExpression>
 #include <QRegularExpressionMatch>
 #include <QThread>
@@ -90,7 +91,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
     tiConfMain main_settings;
 
     QString deviceMountDir;
-    QString backupArg;
+    QStringList backupArg;   // rsync option flags, one element each (no shell)
     QList<QString> bakMessages, pbsMessages;
     QList<tiBackupJobLog> bakLogs;
     QList<tiBackupJobPBSLog> bakPBSLogs;
@@ -107,14 +108,14 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
     {
         detailLog << "Feature: Additional files will be deleted" << "\n";
         detailLog.flush();
-        backupArg.append("--delete ");
+        backupArg << "--delete";
     }
 
     if(compare_via_checksum == true)
     {
         detailLog << "Feature: Checksum comparison enabled" << "\n";
         detailLog.flush();
-        backupArg.append("--checksum ");
+        backupArg << "--checksum";
     }
 
     if(lib.isMounted(part))
@@ -149,46 +150,82 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         QString scriptSource = QString(script.readAll());
         script.close();
 
-        QDateTime currentDate = QDateTime::currentDateTime();
-        QString tmpfilename = QString("/tmp/%1_%2").arg(name, currentDate.toString("yyyyMMddhhmmss"));
-        QFile tmpScript(tmpfilename);
-        tmpScript.open(QIODevice::WriteOnly | QIODevice::Text);
-        QTextStream out(&tmpScript);
         QString tmpSource = TiBackupLib::convertGeneric2Path(scriptSource, deviceMountDir);
-        out << tmpSource;
-        tmpScript.setPermissions(QFile::ReadOwner | QFile::ExeOwner);
-        tmpScript.close();
 
-        detailLog << QString("Computed Script <%1> will be executed before backup:").arg(tmpfilename) << "\n";
-        detailLog << "------------------------------" << "\n";
-        detailLog << tmpSource << "\n";
-        detailLog << "------------------------------" << "\n";
-        detailLog.flush();
-
-        if(lib.runCommandwithReturnCode(tmpfilename, -1) != 0)
+        // Materialise the computed script in a private temp file. QTemporaryFile
+        // creates it atomically (O_EXCL) with a random name and 0600 permissions,
+        // which defeats the predictable-name symlink race the old fixed
+        // "/tmp/<jobname>_<timestamp>" path was vulnerable to (it runs as root).
+        QTemporaryFile tmpScript(QDir::tempPath() + "/tibackup-XXXXXX.sh");
+        tmpScript.setAutoRemove(false);
+        if(!tmpScript.open())
         {
-            QString msg("Script before Backup was not executed properly.");
+            QString msg("Script before Backup could not be staged.");
             bakMessages.append(msg);
             detailLog << msg << "\n";
+            detailLog.flush();
         }
         else
         {
-            QString msg("Script before Backup was executed properly.");
-            bakMessages.append(msg);
-            detailLog << msg << "\n";
+            const QString tmpfilename = tmpScript.fileName();
+            tmpScript.write(tmpSource.toUtf8());
+            tmpScript.flush();
+            tmpScript.close();
+            tmpScript.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+
+            detailLog << QString("Computed Script <%1> will be executed before backup:").arg(tmpfilename) << "\n";
+            detailLog << "------------------------------" << "\n";
+            detailLog << tmpSource << "\n";
+            detailLog << "------------------------------" << "\n";
+            detailLog.flush();
+
+            if(lib.runCommandwithReturnCode(tmpfilename, -1) != 0)
+            {
+                QString msg("Script before Backup was not executed properly.");
+                bakMessages.append(msg);
+                detailLog << msg << "\n";
+            }
+            else
+            {
+                QString msg("Script before Backup was executed properly.");
+                bakMessages.append(msg);
+                detailLog << msg << "\n";
+            }
+            detailLog.flush();
+            QFile::remove(tmpfilename);
         }
-        detailLog.flush();
-        tmpScript.remove();
     }
 
     // We get now the folders to backup
-    QString src, dest, logpath, backupFArgs;
+    QString src, dest, logpath;
     for(const auto &[srcKey, destVal] : backupdirs.asKeyValueRange())
     {
         tiBackupJobLog log;
         src = log.source = srcKey;
         dest = log.destination = TiBackupLib::convertGeneric2Path(destVal, deviceMountDir);
-        backupFArgs = backupArg;
+
+        // Build rsync's arguments as a list so the source/destination paths are
+        // handed to rsync verbatim. There is no shell and no quoting, so a path
+        // containing spaces, quotes or "--rsync-path="-style text can neither be
+        // resplit into extra arguments nor injected as an rsync option.
+        QStringList rsyncArgs;
+        rsyncArgs << "-a";
+
+        // FAT/exFAT can't store Unix permissions/owner/group, so a plain "rsync -a"
+        // exits 23 ("some files/attrs were not transferred") even though the file
+        // data copied fine. Detect such destinations and drop the unsupported
+        // attribute-preservation flags (--modify-window=1 absorbs FAT's 2s time
+        // granularity so unchanged files aren't re-copied every run).
+        const QByteArray fsType = QStorageInfo(dest).fileSystemType().toLower();
+        if(fsType == "vfat" || fsType == "msdos" || fsType == "fat" || fsType == "exfat")
+        {
+            rsyncArgs << "--no-perms" << "--no-owner" << "--no-group" << "--modify-window=1";
+            detailLog << QString("Destination filesystem '%1' has no POSIX attributes; "
+                                 "using FAT/exFAT-safe rsync options").arg(QString::fromUtf8(fsType)) << "\n";
+            detailLog.flush();
+        }
+
+        rsyncArgs += backupArg;   // --delete / --checksum (set above)
 
         if(save_log == true)
         {
@@ -201,7 +238,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                 logdir.mkpath(logpathdir);
 
             logpath = QString("%1/%2_%3.log").arg(logpathdir, currentDate.toString("yyyyMMdd-hhmmss"), QString::number(bakLogs.size()));
-            backupFArgs.append(QString("--log-file=%1 ").arg(logpath));
+            rsyncArgs << QString("--log-file=%1").arg(logpath);
 
             log.rsync_path = logpath;
         }
@@ -213,24 +250,10 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         if(!destdir.exists())
             destdir.mkpath(dest);
 
-        // FAT/exFAT can't store Unix permissions/owner/group, so a plain "rsync -a"
-        // exits 23 ("some files/attrs were not transferred") even though the file
-        // data copied fine. Detect such destinations and drop the unsupported
-        // attribute-preservation flags (--modify-window=1 absorbs FAT's 2s time
-        // granularity so unchanged files aren't re-copied every run).
-        QString rsyncOpts = QStringLiteral("-a");
-        const QByteArray fsType = QStorageInfo(dest).fileSystemType().toLower();
-        if(fsType == "vfat" || fsType == "msdos" || fsType == "fat" || fsType == "exfat")
-        {
-            rsyncOpts = QStringLiteral("-a --no-perms --no-owner --no-group --modify-window=1");
-            detailLog << QString("Destination filesystem '%1' has no POSIX attributes; "
-                                 "using FAT/exFAT-safe rsync options").arg(QString::fromUtf8(fsType)) << "\n";
-            detailLog.flush();
-        }
+        rsyncArgs << src << dest;
 
         QString rsyncOutput;
-        log.ret_code = lib.runCommandwithReturnCode(
-            QString("rsync %1 %2 \"%3\" \"%4\"").arg(rsyncOpts, backupFArgs, src, dest), -1, &rsyncOutput);
+        log.ret_code = lib.runCommandwithReturnCode(QStringLiteral("rsync"), rsyncArgs, -1, &rsyncOutput);
         if(log.ret_code != 0)
         {
             detailLog << QString("RSYNC Backup failed (rsync exit code %1):").arg(log.ret_code) << "\n";
@@ -545,36 +568,48 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         QString scriptSource = QString(script.readAll());
         script.close();
 
-        QDateTime currentDate = QDateTime::currentDateTime();
-        QString tmpfilename = QString("/tmp/%1_%2").arg(name, currentDate.toString("yyyyMMddhhmmss"));
-        QFile tmpScript(tmpfilename);
-        tmpScript.open(QIODevice::WriteOnly | QIODevice::Text);
-        QTextStream out(&tmpScript);
         QString tmpSource = TiBackupLib::convertGeneric2Path(scriptSource, deviceMountDir);
-        out << tmpSource;
-        tmpScript.setPermissions(QFile::ReadOwner | QFile::ExeOwner);
-        tmpScript.close();
 
-        detailLog << QString("Computed Script <%1> will be executed after backup:").arg(tmpfilename) << "\n";
-        detailLog << "------------------------------" << "\n";
-        detailLog << tmpSource << "\n";
-        detailLog << "------------------------------" << "\n";
-        detailLog.flush();
-
-        if(lib.runCommandwithReturnCode(tmpfilename, -1) != 0)
+        // Private temp file, random name + 0600 (O_EXCL) — see the before-backup
+        // block above for why the old fixed /tmp path was unsafe under root.
+        QTemporaryFile tmpScript(QDir::tempPath() + "/tibackup-XXXXXX.sh");
+        tmpScript.setAutoRemove(false);
+        if(!tmpScript.open())
         {
-            QString msg = QString("Script after Backup was not executed properly.");
+            QString msg("Script after Backup could not be staged.");
             bakMessages.append(msg);
             detailLog << msg << "\n";
+            detailLog.flush();
         }
         else
         {
-            QString msg = QString("Script after Backup was executed properly.");
-            bakMessages.append(msg);
-            detailLog << msg << "\n";
+            const QString tmpfilename = tmpScript.fileName();
+            tmpScript.write(tmpSource.toUtf8());
+            tmpScript.flush();
+            tmpScript.close();
+            tmpScript.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+
+            detailLog << QString("Computed Script <%1> will be executed after backup:").arg(tmpfilename) << "\n";
+            detailLog << "------------------------------" << "\n";
+            detailLog << tmpSource << "\n";
+            detailLog << "------------------------------" << "\n";
+            detailLog.flush();
+
+            if(lib.runCommandwithReturnCode(tmpfilename, -1) != 0)
+            {
+                QString msg = QString("Script after Backup was not executed properly.");
+                bakMessages.append(msg);
+                detailLog << msg << "\n";
+            }
+            else
+            {
+                QString msg = QString("Script after Backup was executed properly.");
+                bakMessages.append(msg);
+                detailLog << msg << "\n";
+            }
+            detailLog.flush();
+            QFile::remove(tmpfilename);
         }
-        detailLog.flush();
-        tmpScript.remove();
     }
 
     // We notify the recipients now about the status
