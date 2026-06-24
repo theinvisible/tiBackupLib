@@ -30,6 +30,7 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 
 #include <QDataStream>
 #include <QLatin1String>
+#include <QString>
 
 namespace tibackup_config
 {
@@ -43,6 +44,20 @@ namespace tibackup_config
     [[maybe_unused]] static constexpr QLatin1String backup_detail_folder{"backup_detail"};
 
     [[maybe_unused]] static constexpr QLatin1String var_partbackup_dir{"%MNTBACKUPDIR%"};
+
+    // Resolve the main config file path. Honours the TIBACKUP_CONF env override
+    // (dev/CI only): when set, the whole config tree - main.conf plus the
+    // jobs/pbservers/logs/scripts dirs derived from it - is redirected there, so
+    // the daemon can run without touching the root-owned /etc/tibackup. Mirrors
+    // the TIBACKUP_WEB_DOCROOT / TIBACKUP_WEB_PORT overrides in the web server.
+    // Falls back to the compiled-in file_main when the env var is unset/empty.
+    [[maybe_unused]] inline QString mainConfigFile()
+    {
+        const QByteArray ov = qgetenv("TIBACKUP_CONF");
+        if(!ov.isEmpty())
+            return QString::fromLocal8Bit(ov);
+        return QString(file_main);
+    }
 }
 
 #endif // CONFIG_H

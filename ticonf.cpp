@@ -33,21 +33,21 @@ tiConfMain::tiConfMain()
 {
     initMainConf();
 
-    if(!QFile(tibackup_config::file_main).exists())
+    if(!QFile(tibackup_config::mainConfigFile()).exists())
     {
-        qCritical() << QString("tiConfMain::tiConfMain() -> Main configuration file <").append(tibackup_config::file_main).append("> not found, please fix this...");
+        qCritical() << QString("tiConfMain::tiConfMain() -> Main configuration file <").append(tibackup_config::mainConfigFile()).append("> not found, please fix this...");
         exit(EXIT_FAILURE);
     }
 
-    settings = std::make_unique<QSettings>(tibackup_config::file_main, QSettings::IniFormat);
+    settings = std::make_unique<QSettings>(tibackup_config::mainConfigFile(), QSettings::IniFormat);
 }
 
 tiConfMain::~tiConfMain() = default;
 
 void tiConfMain::initMainConf()
 {
-    QFile conf_main(tibackup_config::file_main);
-    QFileInfo finfo(tibackup_config::file_main);
+    QFile conf_main(tibackup_config::mainConfigFile());
+    QFileInfo finfo(tibackup_config::mainConfigFile());
     QDir conf_main_dir = finfo.absoluteDir();
     conf_main_dir.mkpath(conf_main_dir.absolutePath());
 
@@ -67,7 +67,7 @@ void tiConfMain::initMainConf()
         QDir scriptsdir_path(scripts_dir);
         scriptsdir_path.mkpath(scripts_dir);
 
-        QSettings conf(tibackup_config::file_main, QSettings::IniFormat);
+        QSettings conf(tibackup_config::mainConfigFile(), QSettings::IniFormat);
         conf.setValue("main/debug", false);
         conf.setValue("paths/backupjobs", backupjobs_dir);
         conf.setValue("paths/pbservers", pbservers_dir);
@@ -78,7 +78,7 @@ void tiConfMain::initMainConf()
     }
     else
     {
-        QSettings conf(tibackup_config::file_main, QSettings::IniFormat);
+        QSettings conf(tibackup_config::mainConfigFile(), QSettings::IniFormat);
         if(!conf.contains("paths/pbservers"))
         {
             QString pbservers_dir = QString("%1/pbservers").arg(conf_main_dir.absolutePath());
@@ -100,8 +100,8 @@ void tiConfMain::initMainConf()
     // created world-readable under the daemon's default umask.
     QFile::setPermissions(conf_main_dir.absolutePath(),
                           QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
-    if(QFile::exists(tibackup_config::file_main))
-        QFile::setPermissions(tibackup_config::file_main,
+    if(QFile::exists(tibackup_config::mainConfigFile()))
+        QFile::setPermissions(tibackup_config::mainConfigFile(),
                               QFileDevice::ReadOwner | QFileDevice::WriteOwner);
 }
 
@@ -120,13 +120,13 @@ void tiConfMain::sync()
     settings->sync();
     // Re-assert 0600 after each write: the file carries the web password hash and
     // the (base64) SMTP password and must never be world-readable.
-    QFile::setPermissions(tibackup_config::file_main,
+    QFile::setPermissions(tibackup_config::mainConfigFile(),
                           QFileDevice::ReadOwner | QFileDevice::WriteOwner);
 }
 
 QString tiConfMain::getLogsDetailDir()
 {
-    QFileInfo finfo(tibackup_config::file_main);
+    QFileInfo finfo(tibackup_config::mainConfigFile());
     QDir conf_main_dir = finfo.absoluteDir();
     return QString("%1/logs/%2").arg(conf_main_dir.absolutePath(), tibackup_config::backup_detail_folder);
 }
