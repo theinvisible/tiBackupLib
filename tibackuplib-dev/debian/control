@@ -10,7 +10,7 @@ Rules-Requires-Root: no
 Package: tibackuplib-dev
 Section: libdevel
 Architecture: amd64
-Depends: ${misc:Depends}, tibackuplib (>= 0.8.0), libblkid-dev, libudev-dev
+Depends: ${misc:Depends}, tibackuplib (>= 0.8.1), libblkid-dev, libudev-dev
 Description: development files for the tiBackup core library
  Headers and CMake package configuration for building software against
  tiBackupLib, the core library of the tiBackup backup system.

@@ -74,6 +74,11 @@ void tiConfMain::initMainConf()
         conf.setValue("paths/logs", logs_dir);
         conf.setValue("paths/scripts", scripts_dir);
         conf.setValue("paths/initd", tibackup_config::initd_default);
+        // Fresh installs listen on all interfaces (Proxmox-style): the package
+        // ships a self-signed cert under <config-dir>/pki, so the web UI comes up
+        // over HTTPS and is reachable on the LAN out of the box. Set only here (on
+        // first init) so upgrades of existing installs keep their current bind.
+        conf.setValue("web/bind", "0.0.0.0");
         conf.sync();
     }
     else

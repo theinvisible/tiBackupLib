@@ -1,3 +1,10 @@
+tibackuplib (0.8.1) unstable; urgency=low
+
+  * initMainConf: default web/bind to 0.0.0.0 on fresh installs so the tibackup
+    web UI is reachable over HTTPS on all interfaces (lockstep with tibackup 0.8.1)
+
+ -- Rene Hadler <rene@hadler.me>  Thu, 09 Jul 2026 12:00:00 +0200
+
 tibackuplib (0.8.0) unstable; urgency=low
 
   * For changelog see git commits
