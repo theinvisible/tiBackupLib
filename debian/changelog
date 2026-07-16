@@ -1,3 +1,12 @@
+tibackuplib (0.8.2) unstable; urgency=low
+
+  * Add SSH-Server support (lockstep with tibackup 0.8.2): SSHServer model,
+    tiConfSSHServers config store, and a rsync-over-SSH backup path in
+    tiBackupJob. New sshClient wraps ssh/ssh-keyscan/ssh-keygen with host-key
+    pinning and keepalive-bounded transfers.
+
+ -- Rene Hadler <rene@hadler.me>  Thu, 16 Jul 2026 12:00:00 +0200
+
 tibackuplib (0.8.1) unstable; urgency=low
 
   * initMainConf: default web/bind to 0.0.0.0 on fresh installs so the tibackup

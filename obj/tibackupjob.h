@@ -65,6 +65,15 @@ public:
     int ret_code;
 };
 
+// One SSH source server referenced by a job, together with its remote-source ->
+// local-destination folder mappings (dest may contain the %MNTBACKUPDIR% token).
+class tiBackupJobSSHTarget
+{
+public:
+    QString server_uuid;
+    QMultiHash<QString, QString> backupdirs;
+};
+
 class tiBackupJob
 {
 public:
@@ -99,6 +108,9 @@ public:
     QString pbs_server_storage;
     QList<QString> pbs_backup_ids;
     QString pbs_dest_folder;
+
+    bool ssh;
+    QList<tiBackupJobSSHTarget> ssh_targets;
 
     void startBackup();
     void startBackupThread(backupManager *manager);

@@ -55,11 +55,14 @@ void tiConfMain::initMainConf()
     {
         QString backupjobs_dir = QString("%1/jobs").arg(conf_main_dir.absolutePath());
         QString pbservers_dir = QString("%1/pbservers").arg(conf_main_dir.absolutePath());
+        QString sshservers_dir = QString("%1/sshservers").arg(conf_main_dir.absolutePath());
         QString logs_dir = QString("%1/logs").arg(conf_main_dir.absolutePath());
         QString scripts_dir = QString("%1/scripts").arg(conf_main_dir.absolutePath());
 
         QDir pbservers_dir_path(pbservers_dir);
         pbservers_dir_path.mkpath(pbservers_dir);
+        QDir sshservers_dir_path(sshservers_dir);
+        sshservers_dir_path.mkpath(sshservers_dir);
         QDir backupjobsdir_path(backupjobs_dir);
         backupjobsdir_path.mkpath(backupjobs_dir);
         QDir logsdir_path(logs_dir);
@@ -71,6 +74,7 @@ void tiConfMain::initMainConf()
         conf.setValue("main/debug", false);
         conf.setValue("paths/backupjobs", backupjobs_dir);
         conf.setValue("paths/pbservers", pbservers_dir);
+        conf.setValue("paths/sshservers", sshservers_dir);
         conf.setValue("paths/logs", logs_dir);
         conf.setValue("paths/scripts", scripts_dir);
         conf.setValue("paths/initd", tibackup_config::initd_default);
@@ -91,6 +95,15 @@ void tiConfMain::initMainConf()
             pbservers_dir_path.mkpath(pbservers_dir);
 
             conf.setValue("paths/pbservers", pbservers_dir);
+            conf.sync();
+        }
+        if(!conf.contains("paths/sshservers"))
+        {
+            QString sshservers_dir = QString("%1/sshservers").arg(conf_main_dir.absolutePath());
+            QDir sshservers_dir_path(sshservers_dir);
+            sshservers_dir_path.mkpath(sshservers_dir);
+
+            conf.setValue("paths/sshservers", sshservers_dir);
             conf.sync();
         }
     }
@@ -204,6 +217,25 @@ void tiConfBackupJobs::saveBackupJob(const tiBackupJob &job)
     f->endArray();
     f->endGroup();
 
+    // SSH sources: flattened to one (server_uuid, source, dest) triple per array
+    // entry (QSettings arrays don't nest cleanly); grouped back per server on read.
+    f->beginGroup("ssh");
+    f->setValue("enabled", job.ssh);
+    f->beginWriteArray("entries");
+    int sidx = 0;
+    for(const auto &t : job.ssh_targets)
+    {
+        for(const auto &[source, dest] : t.backupdirs.asKeyValueRange())
+        {
+            f->setArrayIndex(sidx++);
+            f->setValue("server_uuid", t.server_uuid);
+            f->setValue("source", source);
+            f->setValue("dest", dest);
+        }
+    }
+    f->endArray();
+    f->endGroup();
+
     f->beginGroup("task");
     f->setValue("type", static_cast<int>(job.intervalType));
     f->setValue("time", job.intervalTime);
@@ -280,6 +312,33 @@ void tiConfBackupJobs::readBackupJobs()
             {
                 f->setArrayIndex(i);
                 job->pbs_backup_ids.append(f->value("id").toString());
+            }
+            f->endArray();
+            f->endGroup();
+
+            f->beginGroup("ssh");
+            job->ssh = f->value("enabled").toBool();
+            int size3 = f->beginReadArray("entries");
+            QHash<QString, int> sshTargetIdx;
+            for (int i = 0; i < size3; ++i)
+            {
+                f->setArrayIndex(i);
+                QString suuid = f->value("server_uuid").toString();
+                int idx;
+                if(sshTargetIdx.contains(suuid))
+                {
+                    idx = sshTargetIdx.value(suuid);
+                }
+                else
+                {
+                    tiBackupJobSSHTarget t;
+                    t.server_uuid = suuid;
+                    job->ssh_targets.append(t);
+                    idx = job->ssh_targets.size() - 1;
+                    sshTargetIdx.insert(suuid, idx);
+                }
+                job->ssh_targets[idx].backupdirs.insert(f->value("source").toString(),
+                                                         f->value("dest").toString());
             }
             f->endArray();
             f->endGroup();
@@ -465,6 +524,133 @@ bool tiConfPBServers::copyItem(const QString &origname, const QString &cpname)
 {
     PBServer *item = getItemByName(origname);
     PBServer newitem = *item;
+    newitem.genNewUuid();
+    newitem.name = cpname;
+    saveItem(newitem);
+
+    return true;
+}
+
+tiConfSSHServers::tiConfSSHServers()
+{
+    main_settings = std::make_unique<tiConfMain>();
+}
+
+tiConfSSHServers::~tiConfSSHServers() = default;
+
+void tiConfSSHServers::saveItem(const SSHServer &item)
+{
+    QString filename = QString("%1/%2.conf").arg(main_settings->getValue("paths/sshservers").toString(), item.uuid);
+    QDir itemdir(main_settings->getValue("paths/sshservers").toString());
+    if(!itemdir.exists())
+        itemdir.mkpath(main_settings->getValue("paths/sshservers").toString());
+
+    if(QFile::exists(filename))
+        QFile::remove(filename);
+
+    auto f = std::make_unique<QSettings>(filename, QSettings::IniFormat);
+
+    f->beginGroup("sshserver");
+    f->setValue("uuid", item.uuid);
+    f->setValue("name", item.name);
+    f->setValue("host", item.host);
+    f->setValue("port", item.port);
+    f->setValue("username", item.username);
+    f->setValue("keyfile", item.keyfile);
+    f->setValue("keypass", item.keypass);
+    f->setValue("hostkey", item.hostkey);
+    f->endGroup();
+
+    f->sync();
+
+    // Stores the private-key passphrase in clear text — root only.
+    QFile::setPermissions(filename, QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+}
+
+void tiConfSSHServers::readItems()
+{
+    items.clear();
+
+    QString dir = main_settings->getValue("paths/sshservers").toString();
+    QDirIterator it_dir(dir);
+    QString filepath;
+    while (it_dir.hasNext())
+    {
+        filepath = it_dir.next();
+        if(filepath.endsWith(".conf"))
+        {
+            qDebug() << "tiConfSSHServers::readItems() -> item found:" << filepath;
+
+            auto f = std::make_unique<QSettings>(filepath, QSettings::IniFormat);
+            SSHServer *item = new SSHServer;
+
+            f->beginGroup("sshserver");
+            item->uuid = f->value("uuid").toString();
+            item->name = f->value("name").toString();
+            item->host = f->value("host").toString();
+            item->port = f->value("port").toUInt();
+            item->username = f->value("username").toString();
+            item->keyfile = f->value("keyfile").toString();
+            item->keypass = f->value("keypass").toString();
+            item->hostkey = f->value("hostkey").toString();
+            f->endGroup();
+
+            items.append(item);
+        }
+    }
+}
+
+QList<SSHServer *> tiConfSSHServers::getItems()
+{
+    return items;
+}
+
+SSHServer *tiConfSSHServers::getItemByName(const QString &name)
+{
+    readItems();
+
+    for(SSHServer *item : items)
+    {
+        if(item->name == name)
+            return item;
+    }
+
+    return nullptr;
+}
+
+SSHServer *tiConfSSHServers::getItemByUuid(const QString &uuid)
+{
+    readItems();
+
+    for(SSHServer *item : items)
+    {
+        if(item->uuid == uuid)
+            return item;
+    }
+
+    return nullptr;
+}
+
+bool tiConfSSHServers::removeItemByName(const QString &name)
+{
+    return QFile::remove(QString("%1/%2.conf").arg(main_settings->getValue("paths/sshservers").toString(), name));
+}
+
+bool tiConfSSHServers::removeItemByUuid(const QString &uuid)
+{
+    return QFile::remove(QString("%1/%2.conf").arg(main_settings->getValue("paths/sshservers").toString(), uuid));
+}
+
+bool tiConfSSHServers::renameItem(const QString &oldname, const QString &newname)
+{
+    return QFile::rename(QString("%1/%2.conf").arg(main_settings->getValue("paths/sshservers").toString(), oldname),
+                         QString("%1/%2.conf").arg(main_settings->getValue("paths/sshservers").toString(), newname));
+}
+
+bool tiConfSSHServers::copyItem(const QString &origname, const QString &cpname)
+{
+    SSHServer *item = getItemByName(origname);
+    SSHServer newitem = *item;
     newitem.genNewUuid();
     newitem.name = cpname;
     saveItem(newitem);

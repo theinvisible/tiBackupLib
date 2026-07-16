@@ -29,6 +29,7 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 
 #include "obj/tibackupjob.h"
 #include "obj/pbserver.h"
+#include "obj/sshserver.h"
 
 class tiBackupJob;
 
@@ -102,6 +103,37 @@ private:
     std::unique_ptr<tiConfMain> main_settings;
 
     QList<PBServer*> items;
+};
+
+class tiConfSSHServers
+{
+public:
+    static tiConfSSHServers* instance()
+    {
+        static tiConfSSHServers inst;
+        return &inst;
+    }
+
+    void saveItem(const SSHServer &item);
+    void readItems();
+
+    QList<SSHServer*> getItems();
+    SSHServer* getItemByName(const QString &name);
+    SSHServer* getItemByUuid(const QString &uuid);
+
+    bool removeItemByName(const QString &name);
+    bool removeItemByUuid(const QString &uuid);
+
+    bool renameItem(const QString &oldname, const QString &newname);
+    bool copyItem(const QString &origname, const QString &cpname);
+
+private:
+    tiConfSSHServers();
+    ~tiConfSSHServers();
+
+    std::unique_ptr<tiConfMain> main_settings;
+
+    QList<SSHServer*> items;
 };
 
 #endif // TICONF_H

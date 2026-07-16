@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.16)
 # Single source of truth for the version of both tiBackupLib and the tiBackup
 # server: the server reads it at runtime through the generated config.h
 # (tibackup_config::version), so the version is maintained only on this line.
-project(tiBackupLib VERSION 0.8.1 LANGUAGES CXX)
+project(tiBackupLib VERSION 0.8.2 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -28,6 +28,8 @@ qt_add_library(tiBackupLib SHARED
     backupmanager.h
     pbsclient.cpp
     pbsclient.h
+    sshclient.cpp
+    sshclient.h
     tibackupdiskobserver.cpp
     tibackupdiskobserver.h
     ticonf.cpp
@@ -40,6 +42,8 @@ qt_add_library(tiBackupLib SHARED
     obj/devicedisk.h
     obj/pbserver.cpp
     obj/pbserver.h
+    obj/sshserver.cpp
+    obj/sshserver.h
     obj/tibackupjob.cpp
     obj/tibackupjob.h
     obj/exitcodes.cpp

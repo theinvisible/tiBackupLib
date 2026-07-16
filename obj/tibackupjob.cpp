@@ -47,6 +47,7 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 #include "../tibackuplib.h"
 #include "../ticonf.h"
 #include "../pbsclient.h"
+#include "../sshclient.h"
 #include "workers/tibackupjobworker.h"
 
 tiBackupJob::tiBackupJob()
@@ -270,6 +271,123 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         }
         detailLog.flush();
         bakLogs << log;
+    }
+
+    // Do SSH source backups if enabled (rsync pull from remote Linux servers).
+    // Mirrors the local rsync loop above; the only differences are the ssh
+    // transport (rsync -e) and the "user@host:path" remote source.
+    if(ssh)
+    {
+        for(const tiBackupJobSSHTarget &target : ssh_targets)
+        {
+            SSHServer *srv = tiConfSSHServers::instance()->getItemByUuid(target.server_uuid);
+            if(srv == nullptr)
+            {
+                QString msg = QString("SSH server %1 not found in config").arg(target.server_uuid);
+                bakMessages.append(msg);
+                detailLog << msg << "\n";
+                detailLog.flush();
+                continue;
+            }
+            if(srv->hostkey.isEmpty())
+            {
+                QString msg = QString("SSH server %1 (%2) has no pinned host key; run 'Test connection' first")
+                                  .arg(srv->name, srv->host);
+                bakMessages.append(msg);
+                detailLog << msg << "\n";
+                detailLog.flush();
+                continue;
+            }
+
+            // Pin this server's host key in a private temp known_hosts that stays
+            // alive for the duration of its transfers (StrictHostKeyChecking=yes).
+            QTemporaryFile knownHosts(QDir::tempPath() + "/tibackup-kh-XXXXXX");
+            if(!knownHosts.open())
+            {
+                QString msg("Could not stage temporary known_hosts for SSH backup.");
+                bakMessages.append(msg);
+                detailLog << msg << "\n";
+                detailLog.flush();
+                continue;
+            }
+            knownHosts.write(srv->hostkey.toUtf8());
+            knownHosts.flush();
+
+            const QString rsh = sshClient::rshCommand(*srv, knownHosts.fileName());
+
+            for(const auto &[srcKey, destVal] : target.backupdirs.asKeyValueRange())
+            {
+                tiBackupJobLog log;
+                const QString remoteSrc = QString("%1@%2:%3").arg(srv->username, srv->host, srcKey);
+                const QString dest = TiBackupLib::convertGeneric2Path(destVal, deviceMountDir);
+                log.source = remoteSrc;
+                log.destination = dest;
+
+                QStringList rsyncArgs;
+                rsyncArgs << "-a";
+
+                const QByteArray fsType = QStorageInfo(dest).fileSystemType().toLower();
+                if(fsType == "vfat" || fsType == "msdos" || fsType == "fat" || fsType == "exfat")
+                {
+                    rsyncArgs << "--no-perms" << "--no-owner" << "--no-group" << "--modify-window=1";
+                    detailLog << QString("Destination filesystem '%1' has no POSIX attributes; "
+                                         "using FAT/exFAT-safe rsync options").arg(QString::fromUtf8(fsType)) << "\n";
+                    detailLog.flush();
+                }
+
+                rsyncArgs += backupArg;   // --delete / --checksum (set above)
+
+                // Protect the remote path from the remote shell (no word-splitting/
+                // globbing) and use the pinned ssh transport.
+                rsyncArgs << "--protect-args";
+                rsyncArgs << "-e" << rsh;
+
+                if(save_log == true)
+                {
+                    detailLog << "Feature: Rsync Log will be archived" << "\n";
+                    detailLog.flush();
+                    QDateTime currentDate = QDateTime::currentDateTime();
+                    QString logpathdir = QString("%1/%2").arg(main_settings.getValue("paths/logs").toString(), name);
+                    QDir logdir(logpathdir);
+                    if(!logdir.exists())
+                        logdir.mkpath(logpathdir);
+
+                    QString logpath = QString("%1/%2_%3.log").arg(logpathdir,
+                        currentDate.toString("yyyyMMdd-hhmmss"), QString::number(bakLogs.size()));
+                    rsyncArgs << QString("--log-file=%1").arg(logpath);
+
+                    log.rsync_path = logpath;
+                }
+
+                detailLog << QString("SSH RSYNC Backup: Backup %1 to %2").arg(remoteSrc, dest) << "\n";
+                detailLog.flush();
+
+                QDir destdir(dest);
+                if(!destdir.exists())
+                    destdir.mkpath(dest);
+
+                rsyncArgs << remoteSrc << dest;
+
+                QString rsyncOutput;
+                log.ret_code = lib.runCommandwithReturnCode(QStringLiteral("rsync"), rsyncArgs, -1, &rsyncOutput);
+                if(log.ret_code != 0)
+                {
+                    detailLog << QString("SSH RSYNC Backup failed (rsync exit code %1):").arg(log.ret_code) << "\n";
+                    if(!rsyncOutput.trimmed().isEmpty())
+                        detailLog << rsyncOutput.trimmed() << "\n";
+                    else
+                        detailLog << "(rsync produced no output)" << "\n";
+                }
+                else
+                {
+                    detailLog << "SSH RSYNC Backup successful." << "\n";
+                    if(!rsyncOutput.trimmed().isEmpty())
+                        detailLog << rsyncOutput.trimmed() << "\n";
+                }
+                detailLog.flush();
+                bakLogs << log;
+            }
+        }
     }
 
     // Do PBS backup if enabled
@@ -747,6 +865,18 @@ QDataStream &operator<<(QDataStream &ds, const tiBackupJob &obj)
     ds << obj.pbs_backup_ids;
     ds << obj.pbs_dest_folder;
 
+    // SSH sources: bool + list of targets, each with a QMultiHash streamed as
+    // count + key/value pairs (mirrors the backupdirs encoding above).
+    ds << obj.ssh;
+    ds << static_cast<qint32>(obj.ssh_targets.size());
+    for(const auto &t : obj.ssh_targets)
+    {
+        ds << t.server_uuid;
+        ds << static_cast<qint32>(t.backupdirs.size());
+        for(auto it = t.backupdirs.cbegin(); it != t.backupdirs.cend(); ++it)
+            ds << it.key() << it.value();
+    }
+
     return ds;
 }
 
@@ -781,6 +911,25 @@ QDataStream &operator>>(QDataStream &ds, tiBackupJob &obj)
     ds >> obj.pbs >> obj.pbs_server_uuid >> obj.pbs_server_storage;
     ds >> obj.pbs_backup_ids;
     ds >> obj.pbs_dest_folder;
+
+    ds >> obj.ssh;
+    qint32 targetCount = 0;
+    ds >> targetCount;
+    obj.ssh_targets.clear();
+    for(qint32 i = 0; i < targetCount; ++i)
+    {
+        tiBackupJobSSHTarget t;
+        ds >> t.server_uuid;
+        qint32 dirCount2 = 0;
+        ds >> dirCount2;
+        for(qint32 j = 0; j < dirCount2; ++j)
+        {
+            QString key, value;
+            ds >> key >> value;
+            t.backupdirs.insert(key, value);
+        }
+        obj.ssh_targets.append(t);
+    }
 
     return ds;
 }
