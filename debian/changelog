@@ -1,3 +1,9 @@
+tibackuplib (0.8.3) unstable; urgency=low
+
+  * For changelog see git commits
+
+ -- Rene Hadler <rene@hadler.me>  Thu, 16 Jul 2026 12:30:00 +0200
+
 tibackuplib (0.8.2) unstable; urgency=low
 
   * Add SSH-Server support (lockstep with tibackup 0.8.2): SSHServer model,
