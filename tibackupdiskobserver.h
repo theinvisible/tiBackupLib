@@ -37,8 +37,8 @@ public:
     void start();
 
 signals:
-    void diskRemoved(DeviceDisk *disk);
-    void diskAdded(DeviceDisk *disk);
+    void diskRemoved(DeviceDisk disk);
+    void diskAdded(DeviceDisk disk);
 
 public slots:
 

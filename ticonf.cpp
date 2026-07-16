@@ -255,7 +255,7 @@ void tiConfBackupJobs::saveBackupJob(const tiBackupJob &job)
 
 void tiConfBackupJobs::readBackupJobs()
 {
-    // TODO if job objects exist we must *delete* them first
+    // jobs holds values now, so clear() destroys the previous entries (no leak).
     jobs.clear();
 
     QString jobsdir = main_settings->getValue("paths/backupjobs").toString();
@@ -269,55 +269,55 @@ void tiConfBackupJobs::readBackupJobs()
             qDebug() << "tiConfBackupJobs::readBackupJobs() -> jobfile found:" << jobfilepath;
 
             auto f = std::make_unique<QSettings>(jobfilepath, QSettings::IniFormat);
-            tiBackupJob *job = new tiBackupJob;
+            tiBackupJob job;
 
             f->beginGroup("job");
-            job->name = f->value("name").toString();
-            job->device = f->value("device").toString();
-            job->partition_uuid = f->value("partition_uuid").toString();
+            job.name = f->value("name").toString();
+            job.device = f->value("device").toString();
+            job.partition_uuid = f->value("partition_uuid").toString();
             f->endGroup();
 
             f->beginGroup("backup");
-            job->delete_add_file_on_dest = f->value("delete_add_file_on_dest").toBool();
-            job->start_backup_on_hotplug = f->value("start_backup_on_hotplug").toBool();
-            job->save_log = f->value("save_log").toBool();
-            job->compare_via_checksum = f->value("compare_via_checksum").toBool();
+            job.delete_add_file_on_dest = f->value("delete_add_file_on_dest").toBool();
+            job.start_backup_on_hotplug = f->value("start_backup_on_hotplug").toBool();
+            job.save_log = f->value("save_log").toBool();
+            job.compare_via_checksum = f->value("compare_via_checksum").toBool();
 
             int size = f->beginReadArray("folders");
             for (int i = 0; i < size; ++i)
             {
                 f->setArrayIndex(i);
-                job->backupdirs.insert(f->value("source").toString(), f->value("dest").toString());
+                job.backupdirs.insert(f->value("source").toString(), f->value("dest").toString());
             }
             f->endArray();
             f->endGroup();
 
             f->beginGroup("notify");
-            job->notify = f->value("enabled").toBool();
-            job->notifyRecipients = f->value("recipients").toString();
+            job.notify = f->value("enabled").toBool();
+            job.notifyRecipients = f->value("recipients").toString();
             f->endGroup();
 
             f->beginGroup("scripts");
-            job->scriptBeforeBackup = f->value("beforeBackup").toString();
-            job->scriptAfterBackup = f->value("afterBackup").toString();
+            job.scriptBeforeBackup = f->value("beforeBackup").toString();
+            job.scriptAfterBackup = f->value("afterBackup").toString();
             f->endGroup();
 
             f->beginGroup("pbs");
-            job->pbs = f->value("enabled").toBool();
-            job->pbs_server_uuid = f->value("pbs_server_uuid").toString();
-            job->pbs_server_storage = f->value("pbs_server_storage").toString();
-            job->pbs_dest_folder = f->value("pbs_dest_folder").toString();
+            job.pbs = f->value("enabled").toBool();
+            job.pbs_server_uuid = f->value("pbs_server_uuid").toString();
+            job.pbs_server_storage = f->value("pbs_server_storage").toString();
+            job.pbs_dest_folder = f->value("pbs_dest_folder").toString();
             int size2 = f->beginReadArray("pbs_ids");
             for (int i = 0; i < size2; ++i)
             {
                 f->setArrayIndex(i);
-                job->pbs_backup_ids.append(f->value("id").toString());
+                job.pbs_backup_ids.append(f->value("id").toString());
             }
             f->endArray();
             f->endGroup();
 
             f->beginGroup("ssh");
-            job->ssh = f->value("enabled").toBool();
+            job.ssh = f->value("enabled").toBool();
             int size3 = f->beginReadArray("entries");
             QHash<QString, int> sshTargetIdx;
             for (int i = 0; i < size3; ++i)
@@ -333,25 +333,25 @@ void tiConfBackupJobs::readBackupJobs()
                 {
                     tiBackupJobSSHTarget t;
                     t.server_uuid = suuid;
-                    job->ssh_targets.append(t);
-                    idx = job->ssh_targets.size() - 1;
+                    job.ssh_targets.append(t);
+                    idx = job.ssh_targets.size() - 1;
                     sshTargetIdx.insert(suuid, idx);
                 }
-                job->ssh_targets[idx].backupdirs.insert(f->value("source").toString(),
+                job.ssh_targets[idx].backupdirs.insert(f->value("source").toString(),
                                                          f->value("dest").toString());
             }
             f->endArray();
             f->endGroup();
 
             f->beginGroup("task");
-            job->intervalType = static_cast<tiBackupJobInterval>(f->value("type").toInt());
-            job->intervalTime = f->value("time").toString();
-            job->intervalDay = f->value("day").toInt();
+            job.intervalType = static_cast<tiBackupJobInterval>(f->value("type").toInt());
+            job.intervalTime = f->value("time").toString();
+            job.intervalDay = f->value("day").toInt();
             f->endGroup();
 
             f->beginGroup("encluks");
-            job->encLUKSType = static_cast<tiBackupEncLUKS>(f->value("type").toInt());
-            job->encLUKSFilePath = f->value("filepath").toString();
+            job.encLUKSType = static_cast<tiBackupEncLUKS>(f->value("type").toInt());
+            job.encLUKSFilePath = f->value("filepath").toString();
             f->endGroup();
 
             jobs.append(job);
@@ -359,36 +359,37 @@ void tiConfBackupJobs::readBackupJobs()
     }
 }
 
-QList<tiBackupJob *> tiConfBackupJobs::getJobs()
+QList<tiBackupJob> tiConfBackupJobs::getJobs()
 {
+    readBackupJobs();
     return jobs;
 }
 
-QList<tiBackupJob *> tiConfBackupJobs::getJobsByUuid(const QString &uuid)
+QList<tiBackupJob> tiConfBackupJobs::getJobsByUuid(const QString &uuid)
 {
     readBackupJobs();
-    QList<tiBackupJob*> retjobs;
+    QList<tiBackupJob> retjobs;
 
-    for(tiBackupJob *job : jobs)
+    for(const tiBackupJob &job : jobs)
     {
-        if(job->partition_uuid == uuid)
+        if(job.partition_uuid == uuid)
             retjobs.append(job);
     }
 
     return retjobs;
 }
 
-tiBackupJob *tiConfBackupJobs::getJobByName(const QString &jobname)
+std::optional<tiBackupJob> tiConfBackupJobs::getJobByName(const QString &jobname)
 {
     readBackupJobs();
 
-    for(tiBackupJob *job : jobs)
+    for(const tiBackupJob &job : jobs)
     {
-        if(job->name == jobname)
+        if(job.name == jobname)
             return job;
     }
 
-    return nullptr;
+    return std::nullopt;
 }
 
 bool tiConfBackupJobs::removeJobByName(const QString &jobname)
@@ -411,6 +412,7 @@ tiConfPBServers::~tiConfPBServers() = default;
 
 void tiConfPBServers::saveItem(const PBServer &item)
 {
+    QMutexLocker lock(&m_mutex);
     QString filename = QString("%1/%2.conf").arg(main_settings->getValue("paths/pbservers").toString(), item.uuid);
     QDir itemdir(main_settings->getValue("paths/pbservers").toString());
     if(!itemdir.exists())
@@ -454,18 +456,18 @@ void tiConfPBServers::readItems()
             qDebug() << "tiConfPBServers::readItems() -> item found:" << filepath;
 
             auto f = std::make_unique<QSettings>(filepath, QSettings::IniFormat);
-            PBServer *item = new PBServer;
+            PBServer item;
 
             f->beginGroup("pbserver");
-            item->uuid = f->value("uuid").toString();
-            item->name = f->value("name").toString();
-            item->host = f->value("host").toString();
-            item->port = f->value("port").toUInt();
-            item->username = f->value("username").toString();
-            item->password = f->value("password").toString();
-            item->fingerprint = f->value("fingerprint").toString();
-            item->keyfile = f->value("keyfile").toString();
-            item->keypass = f->value("keypass").toString();
+            item.uuid = f->value("uuid").toString();
+            item.name = f->value("name").toString();
+            item.host = f->value("host").toString();
+            item.port = f->value("port").toUInt();
+            item.username = f->value("username").toString();
+            item.password = f->value("password").toString();
+            item.fingerprint = f->value("fingerprint").toString();
+            item.keyfile = f->value("keyfile").toString();
+            item.keypass = f->value("keypass").toString();
             f->endGroup();
 
             items.append(item);
@@ -473,56 +475,66 @@ void tiConfPBServers::readItems()
     }
 }
 
-QList<PBServer *> tiConfPBServers::getItems()
+QList<PBServer> tiConfPBServers::getItems()
 {
+    QMutexLocker lock(&m_mutex);
+    readItems();
     return items;
 }
 
-PBServer *tiConfPBServers::getItemByName(const QString &name)
+std::optional<PBServer> tiConfPBServers::getItemByName(const QString &name)
 {
+    QMutexLocker lock(&m_mutex);
     readItems();
 
-    for(PBServer *item : items)
+    for(const PBServer &item : items)
     {
-        if(item->name == name)
+        if(item.name == name)
             return item;
     }
 
-    return nullptr;
+    return std::nullopt;
 }
 
-PBServer *tiConfPBServers::getItemByUuid(const QString &uuid)
+std::optional<PBServer> tiConfPBServers::getItemByUuid(const QString &uuid)
 {
+    QMutexLocker lock(&m_mutex);
     readItems();
 
-    for(PBServer *item : items)
+    for(const PBServer &item : items)
     {
-        if(item->uuid == uuid)
+        if(item.uuid == uuid)
             return item;
     }
 
-    return nullptr;
+    return std::nullopt;
 }
 
 bool tiConfPBServers::removeItemByName(const QString &name)
 {
+    QMutexLocker lock(&m_mutex);
     return QFile::remove(QString("%1/%2.conf").arg(main_settings->getValue("paths/pbservers").toString(), name));
 }
 
 bool tiConfPBServers::removeItemByUuid(const QString &uuid)
 {
+    QMutexLocker lock(&m_mutex);
     return QFile::remove(QString("%1/%2.conf").arg(main_settings->getValue("paths/pbservers").toString(), uuid));
 }
 
 bool tiConfPBServers::renameItem(const QString &oldname, const QString &newname)
 {
+    QMutexLocker lock(&m_mutex);
     return QFile::rename(QString("%1/%2.conf").arg(main_settings->getValue("paths/pbservers").toString(), oldname),
                          QString("%1/%2.conf").arg(main_settings->getValue("paths/pbservers").toString(), newname));
 }
 
 bool tiConfPBServers::copyItem(const QString &origname, const QString &cpname)
 {
-    PBServer *item = getItemByName(origname);
+    // No lock here: composes getItemByName() + saveItem(), each of which locks.
+    std::optional<PBServer> item = getItemByName(origname);
+    if(!item)
+        return false;
     PBServer newitem = *item;
     newitem.genNewUuid();
     newitem.name = cpname;
@@ -540,6 +552,7 @@ tiConfSSHServers::~tiConfSSHServers() = default;
 
 void tiConfSSHServers::saveItem(const SSHServer &item)
 {
+    QMutexLocker lock(&m_mutex);
     QString filename = QString("%1/%2.conf").arg(main_settings->getValue("paths/sshservers").toString(), item.uuid);
     QDir itemdir(main_settings->getValue("paths/sshservers").toString());
     if(!itemdir.exists())
@@ -582,17 +595,17 @@ void tiConfSSHServers::readItems()
             qDebug() << "tiConfSSHServers::readItems() -> item found:" << filepath;
 
             auto f = std::make_unique<QSettings>(filepath, QSettings::IniFormat);
-            SSHServer *item = new SSHServer;
+            SSHServer item;
 
             f->beginGroup("sshserver");
-            item->uuid = f->value("uuid").toString();
-            item->name = f->value("name").toString();
-            item->host = f->value("host").toString();
-            item->port = f->value("port").toUInt();
-            item->username = f->value("username").toString();
-            item->keyfile = f->value("keyfile").toString();
-            item->keypass = f->value("keypass").toString();
-            item->hostkey = f->value("hostkey").toString();
+            item.uuid = f->value("uuid").toString();
+            item.name = f->value("name").toString();
+            item.host = f->value("host").toString();
+            item.port = f->value("port").toUInt();
+            item.username = f->value("username").toString();
+            item.keyfile = f->value("keyfile").toString();
+            item.keypass = f->value("keypass").toString();
+            item.hostkey = f->value("hostkey").toString();
             f->endGroup();
 
             items.append(item);
@@ -600,56 +613,66 @@ void tiConfSSHServers::readItems()
     }
 }
 
-QList<SSHServer *> tiConfSSHServers::getItems()
+QList<SSHServer> tiConfSSHServers::getItems()
 {
+    QMutexLocker lock(&m_mutex);
+    readItems();
     return items;
 }
 
-SSHServer *tiConfSSHServers::getItemByName(const QString &name)
+std::optional<SSHServer> tiConfSSHServers::getItemByName(const QString &name)
 {
+    QMutexLocker lock(&m_mutex);
     readItems();
 
-    for(SSHServer *item : items)
+    for(const SSHServer &item : items)
     {
-        if(item->name == name)
+        if(item.name == name)
             return item;
     }
 
-    return nullptr;
+    return std::nullopt;
 }
 
-SSHServer *tiConfSSHServers::getItemByUuid(const QString &uuid)
+std::optional<SSHServer> tiConfSSHServers::getItemByUuid(const QString &uuid)
 {
+    QMutexLocker lock(&m_mutex);
     readItems();
 
-    for(SSHServer *item : items)
+    for(const SSHServer &item : items)
     {
-        if(item->uuid == uuid)
+        if(item.uuid == uuid)
             return item;
     }
 
-    return nullptr;
+    return std::nullopt;
 }
 
 bool tiConfSSHServers::removeItemByName(const QString &name)
 {
+    QMutexLocker lock(&m_mutex);
     return QFile::remove(QString("%1/%2.conf").arg(main_settings->getValue("paths/sshservers").toString(), name));
 }
 
 bool tiConfSSHServers::removeItemByUuid(const QString &uuid)
 {
+    QMutexLocker lock(&m_mutex);
     return QFile::remove(QString("%1/%2.conf").arg(main_settings->getValue("paths/sshservers").toString(), uuid));
 }
 
 bool tiConfSSHServers::renameItem(const QString &oldname, const QString &newname)
 {
+    QMutexLocker lock(&m_mutex);
     return QFile::rename(QString("%1/%2.conf").arg(main_settings->getValue("paths/sshservers").toString(), oldname),
                          QString("%1/%2.conf").arg(main_settings->getValue("paths/sshservers").toString(), newname));
 }
 
 bool tiConfSSHServers::copyItem(const QString &origname, const QString &cpname)
 {
-    SSHServer *item = getItemByName(origname);
+    // No lock here: composes getItemByName() + saveItem(), each of which locks.
+    std::optional<SSHServer> item = getItemByName(origname);
+    if(!item)
+        return false;
     SSHServer newitem = *item;
     newitem.genNewUuid();
     newitem.name = cpname;

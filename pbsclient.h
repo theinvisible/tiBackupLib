@@ -7,6 +7,8 @@
 
 #include "obj/HttpStatusCodes.h"
 
+class QSslCertificate;
+
 class pbsClient : public QObject
 {
     Q_OBJECT
@@ -18,6 +20,15 @@ private:
 
     QString ticket;
     QString CSRF;
+
+    // TLS certificate pinning. The PBS REST endpoint uses a self-signed cert, so
+    // instead of blindly ignoring SSL errors we verify the presented leaf-cert
+    // fingerprint against the expected one. captureMode accepts an unverified
+    // cert once (explicit admin "Test connection") and records its fingerprint so
+    // the admin can pin it; lastPeerFingerprint holds the most recently seen fp.
+    QString expectedFingerprint;
+    QString lastPeerFingerprint;
+    bool captureMode = false;
 
     QNetworkAccessManager *nam;
 
@@ -43,6 +54,21 @@ public:
         HttpStatus::Code status;
         QByteArray data;
     };
+
+    // Pin the expected leaf-cert fingerprint (SHA-256, colon-hex, any case) before
+    // issuing requests. When empty, verification fails closed (secure default).
+    void setExpectedFingerprint(const QString &fp);
+    // Trust-on-first-use probe: accept an unverified cert once and record its
+    // fingerprint (retrievable via capturedFingerprint()). For "Test connection".
+    void setCaptureMode(bool on);
+    QString capturedFingerprint() const;
+
+    // Normalise a fingerprint to bare upper-case hex (strip ':' and other
+    // separators); format a certificate's SHA-256 digest as upper-case colon-hex;
+    // compare two fingerprints for equality. Public + static so they are unit-testable.
+    static QString normalizeFingerprint(const QString &fp);
+    static QString fingerprintOf(const QSslCertificate &cert);
+    static bool fingerprintMatches(const QString &a, const QString &b);
 
     HttpStatus::Code auth(const QString &host, const QString &username, const QString &password);
     HttpStatus::Code auth(const QString &host, int port, const QString &username, const QString &password);

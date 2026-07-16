@@ -26,6 +26,7 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 
 #include <QString>
 #include <QList>
+#include <QMetaType>
 
 #include <blkid/blkid.h>
 
@@ -59,5 +60,10 @@ public:
 
 QDataStream &operator<<(QDataStream &ds, const DeviceDiskPartition &obj);
 QDataStream &operator>>(QDataStream &ds, DeviceDiskPartition &obj) ;
+
+// Registered as a Qt metatype so DeviceDisk can be passed by value across the
+// disk-watcher -> main thread queued signal/slot connection (an unregistered
+// DeviceDisk* silently dropped those calls, breaking hotplug backups).
+Q_DECLARE_METATYPE(DeviceDisk)
 
 #endif // DEVICEDISK_H

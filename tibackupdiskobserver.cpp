@@ -127,12 +127,12 @@ void tiBackupDiskObserver::start()
 
                 qDebug() << "status: " << action;
 
-                DeviceDisk *disk = new DeviceDisk();
-                disk->name = udevName;
-                disk->devname = udevDevname;
-                disk->devtype = udevDevtype;
-                disk->vendor = udevIDvendor;
-                disk->model = udevIDmodel;
+                DeviceDisk disk;
+                disk.name = udevName;
+                disk.devname = udevDevname;
+                disk.devtype = udevDevtype;
+                disk.vendor = udevIDvendor;
+                disk.model = udevIDmodel;
 
                 if(action == "add")
                 {

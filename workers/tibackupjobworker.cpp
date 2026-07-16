@@ -49,9 +49,18 @@ void tiBackupJobWorker::process()
     qDebug() << "tiBackupJobWorker::process(): " << jobname;
 
     tiConfBackupJobs jobss;
-    tiBackupJob *workerJob = new tiBackupJob();
-    *workerJob = *jobss.getJobByName(jobname);
-    workerJob->startBackup();
+    std::optional<tiBackupJob> job = jobss.getJobByName(jobname);
+    if(!job)
+    {
+        // The job may have been deleted between scheduling and this thread
+        // starting; abort cleanly instead of dereferencing a null pointer.
+        qWarning() << "tiBackupJobWorker::process() -> job" << jobname
+                   << "no longer exists, aborting";
+        emit finished();
+        return;
+    }
+
+    job->startBackup();
 
     emit finished();
 }

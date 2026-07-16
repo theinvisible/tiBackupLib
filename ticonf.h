@@ -25,7 +25,9 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 #define TICONF_H
 
 #include <QSettings>
+#include <QMutex>
 #include <memory>
+#include <optional>
 
 #include "obj/tibackupjob.h"
 #include "obj/pbserver.h"
@@ -58,11 +60,16 @@ public:
     ~tiConfBackupJobs();
 
     void saveBackupJob(const tiBackupJob &job);
+    // Kept public: backupManager's ctor warm-up calls it directly. The value
+    // accessors below also (re)read internally, so an explicit call is optional.
     void readBackupJobs();
 
-    QList<tiBackupJob*> getJobs();
-    QList<tiBackupJob*> getJobsByUuid(const QString &uuid);
-    tiBackupJob* getJobByName(const QString &jobname);
+    // Value semantics: accessors return copies so a caller can safely hold the
+    // result across long operations / other reads without dangling. (This class
+    // is not a singleton - each user constructs its own - so it needs no mutex.)
+    QList<tiBackupJob> getJobs();
+    QList<tiBackupJob> getJobsByUuid(const QString &uuid);
+    std::optional<tiBackupJob> getJobByName(const QString &jobname);
 
     bool removeJobByName(const QString &jobname);
 
@@ -71,7 +78,7 @@ public:
 private:
     std::unique_ptr<tiConfMain> main_settings;
 
-    QList<tiBackupJob*> jobs;
+    QList<tiBackupJob> jobs;
 };
 
 class tiConfPBServers
@@ -84,11 +91,14 @@ public:
     }
 
     void saveItem(const PBServer &item);
-    void readItems();
 
-    QList<PBServer*> getItems();
-    PBServer* getItemByName(const QString &name);
-    PBServer* getItemByUuid(const QString &uuid);
+    // Value semantics + mutex: this is a process-wide singleton shared between
+    // the main (web) thread and backup-worker threads. Accessors take m_mutex,
+    // (re)read from disk, and return a COPY - so read+copy is atomic w.r.t. a
+    // concurrent save/read and the caller can hold the result safely for hours.
+    QList<PBServer> getItems();
+    std::optional<PBServer> getItemByName(const QString &name);
+    std::optional<PBServer> getItemByUuid(const QString &uuid);
 
     bool removeItemByName(const QString &name);
     bool removeItemByUuid(const QString &uuid);
@@ -100,9 +110,13 @@ private:
     tiConfPBServers();
     ~tiConfPBServers();
 
+    // Assumes m_mutex is held by the caller.
+    void readItems();
+
     std::unique_ptr<tiConfMain> main_settings;
 
-    QList<PBServer*> items;
+    QList<PBServer> items;
+    QMutex m_mutex;
 };
 
 class tiConfSSHServers
@@ -115,11 +129,11 @@ public:
     }
 
     void saveItem(const SSHServer &item);
-    void readItems();
 
-    QList<SSHServer*> getItems();
-    SSHServer* getItemByName(const QString &name);
-    SSHServer* getItemByUuid(const QString &uuid);
+    // Value semantics + mutex - see tiConfPBServers above for the rationale.
+    QList<SSHServer> getItems();
+    std::optional<SSHServer> getItemByName(const QString &name);
+    std::optional<SSHServer> getItemByUuid(const QString &uuid);
 
     bool removeItemByName(const QString &name);
     bool removeItemByUuid(const QString &uuid);
@@ -131,9 +145,13 @@ private:
     tiConfSSHServers();
     ~tiConfSSHServers();
 
+    // Assumes m_mutex is held by the caller.
+    void readItems();
+
     std::unique_ptr<tiConfMain> main_settings;
 
-    QList<SSHServer*> items;
+    QList<SSHServer> items;
+    QMutex m_mutex;
 };
 
 #endif // TICONF_H

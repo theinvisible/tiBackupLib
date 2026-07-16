@@ -6,17 +6,89 @@
 #include <QJsonObject>
 #include <QNetworkCookieJar>
 #include <QNetworkCookie>
+#include <QSslCertificate>
+#include <QSslConfiguration>
+#include <QSslError>
+#include <QCryptographicHash>
 
 pbsClient::pbsClient(QObject *parent) : QObject(parent)
 {
     nam = new QNetworkAccessManager(this);
-    connect(nam, &QNetworkAccessManager::sslErrors, this, [](QNetworkReply *reply, const QList<QSslError> &errors) {
-        qInfo() << "ignoring sslerror" << errors;
-        reply->ignoreSslErrors(errors);
+    connect(nam, &QNetworkAccessManager::sslErrors, this,
+            [this](QNetworkReply *reply, const QList<QSslError> &errors) {
+        // Verify the presented leaf certificate against the pinned fingerprint
+        // instead of accepting anything. PBS uses a self-signed cert, so we can't
+        // rely on the CA chain; the SHA-256 fingerprint is the trust anchor.
+        const QSslCertificate cert = reply->sslConfiguration().peerCertificate();
+        if(cert.isNull())
+            return;   // no cert to verify -> leave the error standing (fail closed)
+
+        lastPeerFingerprint = fingerprintOf(cert);
+
+        if(!expectedFingerprint.isEmpty() &&
+           fingerprintMatches(lastPeerFingerprint, expectedFingerprint))
+        {
+            reply->ignoreSslErrors(errors);   // pinned cert matches -> accept
+            return;
+        }
+
+        if(captureMode)
+        {
+            reply->ignoreSslErrors(errors);   // explicit admin probe (trust on first use)
+            return;
+        }
+
+        // Otherwise leave the SSL error standing: the request fails rather than
+        // trusting an unpinned/mismatched certificate.
+        qWarning() << "pbsClient: TLS fingerprint mismatch or no pin; rejecting connection to" << host;
     });
     host = "";
     ticket = "";
     CSRF = "";
+}
+
+void pbsClient::setExpectedFingerprint(const QString &fp)
+{
+    expectedFingerprint = fp;
+}
+
+void pbsClient::setCaptureMode(bool on)
+{
+    captureMode = on;
+}
+
+QString pbsClient::capturedFingerprint() const
+{
+    return lastPeerFingerprint;
+}
+
+QString pbsClient::normalizeFingerprint(const QString &fp)
+{
+    QString out;
+    out.reserve(fp.size());
+    for(const QChar c : fp)
+        if(c.isLetterOrNumber())
+            out.append(c.toUpper());
+    return out;
+}
+
+QString pbsClient::fingerprintOf(const QSslCertificate &cert)
+{
+    // Upper-case colon-separated hex, matching Proxmox's fingerprint convention.
+    return QString::fromLatin1(cert.digest(QCryptographicHash::Sha256).toHex(':')).toUpper();
+}
+
+bool pbsClient::fingerprintMatches(const QString &a, const QString &b)
+{
+    const QString na = normalizeFingerprint(a);
+    const QString nb = normalizeFingerprint(b);
+    if(na.isEmpty() || na.size() != nb.size())
+        return false;
+    // Constant-time over equal length (harmless hardening; the fingerprint is public).
+    quint16 diff = 0;
+    for(int i = 0; i < na.size(); ++i)
+        diff |= static_cast<quint16>(na.at(i).unicode() ^ nb.at(i).unicode());
+    return diff == 0;
 }
 
 QNetworkRequest pbsClient::getNRAuth(const QString &url)

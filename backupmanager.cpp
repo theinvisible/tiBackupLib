@@ -19,9 +19,9 @@ backupManager::~backupManager()
 
 bool backupManager::startBackup(const QString &name)
 {
-    backupjobs->readBackupJobs();
-    tiBackupJob* job = backupjobs->getJobByName(name);
-    if(job == nullptr) {
+    // getJobByName re-reads internally and returns a value copy.
+    std::optional<tiBackupJob> job = backupjobs->getJobByName(name);
+    if(!job) {
         qWarning() << "backupManager::startBackup() -> Backupjob " << name << " not found";
         return false;
     }

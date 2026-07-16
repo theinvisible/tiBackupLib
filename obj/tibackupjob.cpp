@@ -280,8 +280,8 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
     {
         for(const tiBackupJobSSHTarget &target : ssh_targets)
         {
-            SSHServer *srv = tiConfSSHServers::instance()->getItemByUuid(target.server_uuid);
-            if(srv == nullptr)
+            std::optional<SSHServer> srvOpt = tiConfSSHServers::instance()->getItemByUuid(target.server_uuid);
+            if(!srvOpt)
             {
                 QString msg = QString("SSH server %1 not found in config").arg(target.server_uuid);
                 bakMessages.append(msg);
@@ -289,10 +289,14 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                 detailLog.flush();
                 continue;
             }
-            if(srv->hostkey.isEmpty())
+            // Copy out of the shared singleton up front: this reference is used
+            // across the whole (potentially hours-long) transfer, and the main
+            // (web) thread may re-read the config meanwhile. A value copy can't dangle.
+            const SSHServer srv = *srvOpt;
+            if(srv.hostkey.isEmpty())
             {
                 QString msg = QString("SSH server %1 (%2) has no pinned host key; run 'Test connection' first")
-                                  .arg(srv->name, srv->host);
+                                  .arg(srv.name, srv.host);
                 bakMessages.append(msg);
                 detailLog << msg << "\n";
                 detailLog.flush();
@@ -310,15 +314,15 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                 detailLog.flush();
                 continue;
             }
-            knownHosts.write(srv->hostkey.toUtf8());
+            knownHosts.write(srv.hostkey.toUtf8());
             knownHosts.flush();
 
-            const QString rsh = sshClient::rshCommand(*srv, knownHosts.fileName());
+            const QString rsh = sshClient::rshCommand(srv, knownHosts.fileName());
 
             for(const auto &[srcKey, destVal] : target.backupdirs.asKeyValueRange())
             {
                 tiBackupJobLog log;
-                const QString remoteSrc = QString("%1@%2:%3").arg(srv->username, srv->host, srcKey);
+                const QString remoteSrc = QString("%1@%2:%3").arg(srv.username, srv.host, srcKey);
                 const QString dest = TiBackupLib::convertGeneric2Path(destVal, deviceMountDir);
                 log.source = remoteSrc;
                 log.destination = dest;
@@ -397,22 +401,28 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         QFileInfo finfo_stdout("/dev/stdout");
         if(finfo_stdout.isSymLink())
         {
-            tiConfPBServers *pbsconf = tiConfPBServers::instance();
-            PBServer *pb = pbsconf->getItemByUuid(pbs_server_uuid);
-            if(pb != nullptr)
+            std::optional<PBServer> pbOpt = tiConfPBServers::instance()->getItemByUuid(pbs_server_uuid);
+            if(pbOpt)
             {
+                // Copy out of the shared singleton up front: pb is used across a
+                // long PBS restore while the main (web) thread may re-read the
+                // config. A value copy can't dangle.
+                const PBServer pb = *pbOpt;
                 pbsClient *pbs = pbsClient::instanceUnique();
-                HttpStatus::Code status = pbs->auth(pb->host, pb->port, pb->username, pb->password);
+                pbs->setExpectedFingerprint(pb.fingerprint);
+                HttpStatus::Code status = pb.fingerprint.isEmpty()
+                    ? HttpStatus::Code::BadRequest
+                    : pbs->auth(pb.host, pb.port, pb.username, pb.password);
                 if(status == HttpStatus::Code::OK)
                 {
                     // Create process environment for proxmox-backup-client
                     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-                    env.insert("PBS_REPOSITORY", QString("%1@%2:%3").arg(pb->username, pb->host, pbs_server_storage));
-                    env.insert("PBS_PASSWORD", pb->password);
-                    env.insert("PBS_FINGERPRINT", pb->fingerprint);
+                    env.insert("PBS_REPOSITORY", QString("%1@%2:%3").arg(pb.username, pb.host, pbs_server_storage));
+                    env.insert("PBS_PASSWORD", pb.password);
+                    env.insert("PBS_FINGERPRINT", pb.fingerprint);
                     env.insert("PROXMOX_OUTPUT_FORMAT", "json");
-                    if(!pb->keypass.isEmpty())
-                        env.insert("PBS_ENCRYPTION_PASSWORD", pb->keypass);
+                    if(!pb.keypass.isEmpty())
+                        env.insert("PBS_ENCRYPTION_PASSWORD", pb.keypass);
 
                     for(const auto &pbs_groupid : pbs_backup_ids)
                     {
@@ -429,7 +439,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                         detailLog.flush();
 
                         // Do additional auth to avoid pbs ticket timeouts
-                        pbs->auth(pb->host, pb->port, pb->username, pb->password);
+                        pbs->auth(pb.host, pb.port, pb.username, pb.password);
                         pbsClient::HttpResponse ret = pbs->getDatastoreSnapshots(pbs_server_storage, pbs_id[1], pbs_id[0]);
                         if(ret.status == HttpStatus::Code::OK)
                         {
@@ -495,15 +505,15 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                     p.setProcessEnvironment(env);
                                     p.setProcessChannelMode(QProcess::MergedChannels);
                                     QStringList startargs = QStringList() << "restore" << respec << file << vmdir.path().append("/").append(file);
-                                    if(!pb->keyfile.isEmpty())
+                                    if(!pb.keyfile.isEmpty())
                                     {
-                                        if(QFile::exists(pb->keyfile))
+                                        if(QFile::exists(pb.keyfile))
                                         {
-                                            startargs << "--keyfile" << pb->keyfile;
+                                            startargs << "--keyfile" << pb.keyfile;
                                         }
                                         else
                                         {
-                                            QString errmsg = QString("Encryption file %1 not found!").arg(pb->keyfile);
+                                            QString errmsg = QString("Encryption file %1 not found!").arg(pb.keyfile);
                                             log.errmsg.append(errmsg).append(", ");
                                             detailLog << errmsg << "\n";
                                             detailLog.flush();
@@ -655,7 +665,9 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                 }
                 else
                 {
-                    QString msg = QString("PBS %1 auth not successful").arg(pbs_server_uuid);
+                    QString msg = pb.fingerprint.isEmpty()
+                        ? QString("PBS %1 (%2) has no pinned TLS fingerprint; run 'Test connection' and save it first").arg(pb.name, pb.host)
+                        : QString("PBS %1 auth not successful").arg(pbs_server_uuid);
                     pbsMessages.append(msg);
                     detailLog << msg << "\n";
                 }
