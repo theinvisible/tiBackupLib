@@ -60,7 +60,7 @@ tiBackupServiceStatus tiBackupService::stop()
     lib.runCommandwithReturnCode(cmd);
 
     emit serviceStopped();
-    return tiBackupServiceStatusStarted;
+    return tiBackupServiceStatusStopped;
 }
 
 tiBackupServiceStatus tiBackupService::status()
@@ -75,7 +75,9 @@ tiBackupServiceStatus tiBackupService::status()
         cmd = QString("systemctl status %1").arg(tibackup_config::systemd_name);
         break;
     case tiBackupInitSystem::Other:
-        cmd = QString("%1 stop").arg(initd);
+        // Was "%1 stop" (copy-pasted from stop()) - querying the status must not
+        // stop the service on a SysV/init.d host.
+        cmd = QString("%1 status").arg(initd);
 
         if(!QFile::exists(initd))
             return tiBackupServiceStatusNotFound;

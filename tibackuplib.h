@@ -52,7 +52,9 @@ public:
     void print_device(struct udev_device *device, const char *source);
 
     QString mountPartition(DeviceDiskPartition *part, tiBackupJob *job = nullptr);
-    void umountPartition(DeviceDiskPartition *part);
+    // Returns true only when the partition (and, for LUKS, its mapping) was
+    // actually released. Callers must not assume the device is free on false.
+    bool umountPartition(DeviceDiskPartition *part);
 
     bool isMounted(const QString &dev_path);
     bool isMounted(DeviceDiskPartition *dev);

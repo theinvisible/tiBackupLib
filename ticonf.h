@@ -43,6 +43,11 @@ public:
 
     void initMainConf();
 
+    // True when the main config file exists after initMainConf(). Callers that
+    // must have a usable config (the daemon at startup) check this; a false here
+    // is fatal only where the caller decides so - the ctor no longer exit()s.
+    bool isValid() const { return m_valid; }
+
     QVariant getValue(const QString &iniPath);
     void setValue(const QString &iniPath, const QVariant &val);
     void sync();
@@ -51,6 +56,7 @@ public:
 
 private:
     std::unique_ptr<QSettings> settings;
+    bool m_valid = false;
 };
 
 class tiConfBackupJobs

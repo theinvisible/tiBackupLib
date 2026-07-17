@@ -865,9 +865,15 @@ bool tiBackupJob::startBackup(DeviceDiskPartition *part)
 
         Poco::Net::MailRecipient recipient(Poco::Net::MailRecipient::PRIMARY_RECIPIENT, notifyRecipients.toStdString());
 
+        // Sender is configurable (smtp/from); fall back to the historical default
+        // if the key is unset (e.g. a config that predates seeding).
+        QString mailFrom = main_settings.getValue("smtp/from").toString();
+        if(mailFrom.isEmpty())
+            mailFrom = tibackup_config::mail_from_default;
+
         Poco::Net::MailMessage mail;
         mail.addRecipient(recipient);
-        mail.setSender("tiBackup Backupsystem <tibackup@iteas.at>");
+        mail.setSender(mailFrom.toStdString());
         mail.setSubject(QString("Information for backupjob <%1>").arg(name).toStdString());
 
         QString mailMsg = QString("Backupjob <%1> was executed, you can now detach drive %2. \n\nGenerated backup information: \n\n").arg(name, device);
@@ -973,7 +979,14 @@ bool tiBackupJob::startBackup(DeviceDiskPartition *part)
     // Only unmount if we mounted it ourselves; a disk that was already mounted
     // before the backup (e.g. an always-mounted internal disk) must be left as-is.
     if(weMounted)
-        lib.umountPartition(part);
+    {
+        if(!lib.umountPartition(part))
+        {
+            detailLog << "Warning: the backup target could not be unmounted (still busy?); "
+                         "leaving it mounted." << "\n";
+            detailLog.flush();
+        }
+    }
 
     return true;
 }

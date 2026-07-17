@@ -297,16 +297,34 @@ QString TiBackupLib::mountPartition(DeviceDiskPartition *part, tiBackupJob *job)
     return mount_dir;
 }
 
-void TiBackupLib::umountPartition(DeviceDiskPartition *part)
+bool TiBackupLib::umountPartition(DeviceDiskPartition *part)
 {
     QString mount_dir = getMountDir(part);
-    runCommandwithReturnCode(QStringLiteral("umount"), QStringList() << mount_dir, -1);
+    int rc = runCommandwithReturnCode(QStringLiteral("umount"), QStringList() << mount_dir, -1);
+
+    // Don't claim the device is free when umount failed (e.g. target still busy):
+    // report failure and leave the LUKS mapping open - closing it would fail too
+    // and could hide the real cause.
+    if(rc != 0 || isMounted(part))
+    {
+        qWarning() << "TiBackupLib::umountPartition() -> failed to unmount" << mount_dir
+                   << "(umount rc" << rc << ")";
+        return false;
+    }
 
     if(part->type == "crypto_LUKS")
     {
-        runCommandwithReturnCode(QStringLiteral("cryptsetup"),
+        int rc_luks = runCommandwithReturnCode(QStringLiteral("cryptsetup"),
                                  QStringList() << "close" << QString("tibackup_enc_%1").arg(part->uuid), -1);
+        if(rc_luks != 0)
+        {
+            qWarning() << "TiBackupLib::umountPartition() -> failed to close LUKS mapping for"
+                       << part->uuid << "(cryptsetup rc" << rc_luks << ")";
+            return false;
+        }
     }
+
+    return true;
 }
 
 bool TiBackupLib::isMounted(const QString &dev_path)

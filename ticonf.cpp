@@ -33,11 +33,14 @@ tiConfMain::tiConfMain()
 {
     initMainConf();
 
-    if(!QFile(tibackup_config::mainConfigFile()).exists())
-    {
+    // A library must not kill the host process: instead of exit()ing when the
+    // main config is missing/unwritable, record it via isValid() and let callers
+    // decide. The daemon does the fatal check once at startup (main.cpp); request
+    // handlers keep working against QSettings defaults rather than tearing down
+    // the whole process from deep inside a request.
+    m_valid = QFile(tibackup_config::mainConfigFile()).exists();
+    if(!m_valid)
         qCritical() << QString("tiConfMain::tiConfMain() -> Main configuration file <").append(tibackup_config::mainConfigFile()).append("> not found, please fix this...");
-        exit(EXIT_FAILURE);
-    }
 
     settings = std::make_unique<QSettings>(tibackup_config::mainConfigFile(), QSettings::IniFormat);
 }
@@ -56,7 +59,8 @@ void tiConfMain::initMainConf()
         QString backupjobs_dir = QString("%1/jobs").arg(conf_main_dir.absolutePath());
         QString pbservers_dir = QString("%1/pbservers").arg(conf_main_dir.absolutePath());
         QString sshservers_dir = QString("%1/sshservers").arg(conf_main_dir.absolutePath());
-        QString logs_dir = QString("%1/logs").arg(conf_main_dir.absolutePath());
+        // Logs live under /var/log/tibackup (FHS), not in the /etc config tree.
+        QString logs_dir = tibackup_config::logsDir();
         QString scripts_dir = QString("%1/scripts").arg(conf_main_dir.absolutePath());
 
         QDir pbservers_dir_path(pbservers_dir);
@@ -81,6 +85,8 @@ void tiConfMain::initMainConf()
         // Non-root user that pre/post-backup scripts run as (root-only setting; never
         // web-settable). See tibackup_config::script_run_user.
         conf.setValue("scripts/run_user", tibackup_config::script_run_user);
+        // Notification-mail sender; user-overridable (root or web Settings).
+        conf.setValue("smtp/from", tibackup_config::mail_from_default);
         // Fresh installs listen on all interfaces (Proxmox-style): the package
         // ships a self-signed cert under <config-dir>/pki, so the web UI comes up
         // over HTTPS and is reachable on the LAN out of the box. Set only here (on
@@ -116,11 +122,37 @@ void tiConfMain::initMainConf()
             conf.setValue("scripts/run_user", tibackup_config::script_run_user);
             conf.sync();
         }
+        if(!conf.contains("smtp/from"))
+        {
+            // Seed the mail sender on upgrade to the historical hardcoded value so
+            // notification mails keep the same From after upgrade.
+            conf.setValue("smtp/from", tibackup_config::mail_from_default);
+            conf.sync();
+        }
+        // Migrate logs off /etc: older installs stored paths/logs as the in-tree
+        // <configdir>/logs (i.e. /etc/tibackup/logs). Move the pointer to the FHS
+        // location; a value the admin customised to something else is left alone.
+        // The package postinst moves any existing log files to the new dir.
+        const QString oldDefaultLogs = QString("%1/logs").arg(conf_main_dir.absolutePath());
+        if(conf.value("paths/logs").toString() == oldDefaultLogs &&
+           oldDefaultLogs != tibackup_config::logsDir())
+        {
+            conf.setValue("paths/logs", tibackup_config::logsDir());
+            conf.sync();
+        }
     }
 
-    QString logs_dir = QString("%1/logs/%2").arg(conf_main_dir.absolutePath(), tibackup_config::backup_detail_folder);
-    QDir logsdir_detail_path(logs_dir);
-    logsdir_detail_path.mkpath(logs_dir);
+    // Ensure the effective (possibly migrated / custom) logs dir and its
+    // backup_detail subdir exist. Read paths/logs back here since `settings` is
+    // not constructed yet at this point in the ctor; fall back to the default.
+    QSettings confLogs(tibackup_config::mainConfigFile(), QSettings::IniFormat);
+    const QString logs_base = confLogs.value("paths/logs", tibackup_config::logsDir()).toString();
+    QDir().mkpath(logs_base);
+    QDir().mkpath(QString("%1/%2").arg(logs_base, tibackup_config::backup_detail_folder));
+    // Detail/rsync logs can contain script bodies and source paths, so keep the
+    // log dir root-only (files themselves are created 0600 under the daemon umask).
+    QFile::setPermissions(logs_base,
+                          QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
 
     // The config tree stores the web admin password hash plus the PBS/SMTP
     // credentials, so confine it to root (0700 dir / 0600 file). Done on every
@@ -154,9 +186,10 @@ void tiConfMain::sync()
 
 QString tiConfMain::getLogsDetailDir()
 {
-    QFileInfo finfo(tibackup_config::mainConfigFile());
-    QDir conf_main_dir = finfo.absoluteDir();
-    return QString("%1/logs/%2").arg(conf_main_dir.absolutePath(), tibackup_config::backup_detail_folder);
+    // Derived from the configured paths/logs so the detail logs follow the log
+    // location (default /var/log/tibackup) instead of being pinned under /etc.
+    const QString logs_base = settings->value("paths/logs", tibackup_config::logsDir()).toString();
+    return QString("%1/%2").arg(logs_base, tibackup_config::backup_detail_folder);
 }
 
 

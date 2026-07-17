@@ -1,3 +1,21 @@
+tibackuplib (0.9.0) unstable; urgency=low
+
+  * Prio-3 hardening batch (lockstep with tibackup 0.9.0):
+    - New tiBackupScheduler::shouldRun(): a pure, wall-clock-free strict-slot
+      scheduling decision (unit-tested), used by the daemon's scheduler.
+    - Logs default to /var/log/tibackup (FHS); paths/logs is migrated off
+      /etc/tibackup/logs on upgrade and getLogsDetailDir()/the detail dir now
+      follow paths/logs. Honours TIBACKUP_CONF (dev/CI logs stay in-tree).
+    - tiConfMain no longer exit()s the process when the config is missing; it
+      exposes isValid() and the daemon does the fatal check once at startup.
+    - tiBackupService::status() no longer stops the service on SysV/init.d hosts
+      (was building "<initd> stop"); stop() returns a stopped status.
+    - umountPartition() now returns success/failure and the backup flow checks it.
+    - Configurable notification-mail sender via the smtp/from config key.
+    - The shared library now carries a VERSION/SOVERSION soname.
+
+ -- Rene Hadler <rene@hadler.me>  Fri, 17 Jul 2026 09:00:00 +0200
+
 tibackuplib (0.8.3) unstable; urgency=low
 
   * For changelog see git commits

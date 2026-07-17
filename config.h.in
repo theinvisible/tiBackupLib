@@ -29,6 +29,8 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 #define CONFIG_H
 
 #include <QDataStream>
+#include <QDir>
+#include <QFileInfo>
 #include <QLatin1String>
 #include <QString>
 
@@ -52,6 +54,11 @@ namespace tibackup_config
 
     [[maybe_unused]] static constexpr QLatin1String var_partbackup_dir{"%MNTBACKUPDIR%"};
 
+    // Default From/sender for notification mails. Overridable via the main.conf
+    // key smtp/from (and the web Settings UI); kept as the historical default so
+    // existing installs keep the same sender after upgrade.
+    [[maybe_unused]] static constexpr QLatin1String mail_from_default{"tiBackup Backupsystem <tibackup@iteas.at>"};
+
     // Resolve the main config file path. Honours the TIBACKUP_CONF env override
     // (dev/CI only): when set, the whole config tree - main.conf plus the
     // jobs/pbservers/logs/scripts dirs derived from it - is redirected there, so
@@ -64,6 +71,32 @@ namespace tibackup_config
         if(!ov.isEmpty())
             return QString::fromLocal8Bit(ov);
         return QString(file_main);
+    }
+
+    // Default directory for tiBackup's logs (main tibackup.log + backup_detail +
+    // per-job rsync logs). FHS-correct /var/log/tibackup for real installs; but
+    // when the config tree is redirected via TIBACKUP_CONF (dev/CI) the logs stay
+    // INSIDE that tree so test runs remain isolated and need no root-owned
+    // /var/log. Mirrors the redirection logic in mainConfigFile().
+    [[maybe_unused]] inline QString logsDir()
+    {
+        const QByteArray ov = qgetenv("TIBACKUP_CONF");
+        if(!ov.isEmpty())
+        {
+            const QFileInfo finfo(QString::fromLocal8Bit(ov));
+            return QString("%1/logs").arg(finfo.absoluteDir().absolutePath());
+        }
+        return QStringLiteral("/var/log/tibackup");
+    }
+
+    // Sidecar holding the scheduler's per-job last-run timestamps. Kept OUT of the
+    // job .conf on purpose: tiConfBackupJobs::saveBackupJob rewrites that file on
+    // every edit, which would wipe the state. Lives next to main.conf (root-only)
+    // and honours the same TIBACKUP_CONF redirection via mainConfigFile().
+    [[maybe_unused]] inline QString schedulerStateFile()
+    {
+        const QFileInfo finfo(mainConfigFile());
+        return QString("%1/scheduler_state.conf").arg(finfo.absoluteDir().absolutePath());
     }
 }
 

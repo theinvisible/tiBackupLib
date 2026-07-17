@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.16)
 # Single source of truth for the version of both tiBackupLib and the tiBackup
 # server: the server reads it at runtime through the generated config.h
 # (tibackup_config::version), so the version is maintained only on this line.
-project(tiBackupLib VERSION 0.8.3 LANGUAGES CXX)
+project(tiBackupLib VERSION 0.9.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -36,6 +36,8 @@ qt_add_library(tiBackupLib SHARED
     ticonf.h
     tibackupservice.cpp
     tibackupservice.h
+    tibackupscheduler.cpp
+    tibackupscheduler.h
     tibackuplib_global.h
     "${CMAKE_CURRENT_BINARY_DIR}/config.h"
     obj/devicedisk.cpp
@@ -58,6 +60,16 @@ target_include_directories(tiBackupLib PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>  # generated config.h
     $<INSTALL_INTERFACE:include/tibackuplib>
+)
+
+# Give the shared object a real soname (libtiBackupLib.so.<major> ->
+# libtiBackupLib.so.<version>), so ABI breaks become loader-visible instead of
+# silently rebinding against an unversioned .so. SOVERSION is the major only, so
+# compatible releases keep the same soname; the Debian package (debian/rules
+# ships libtiBackupLib.so*) picks up the symlinks automatically.
+set_target_properties(tiBackupLib PROPERTIES
+    VERSION ${PROJECT_VERSION}
+    SOVERSION ${PROJECT_VERSION_MAJOR}
 )
 
 # Lets consumers link tiBackupLib::tiBackupLib uniformly, whether they pull the
