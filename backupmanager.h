@@ -27,7 +27,7 @@ public:
     backupStatus getBackupStatus(const QString &name);
 
 public slots:
-    void onBackupFinished(const QString &name);
+    void onBackupFinished(const QString &name, bool ok);
 
 signals:
     // Emitted whenever a job's live status changes (used by the web layer to push

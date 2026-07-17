@@ -112,9 +112,12 @@ public:
     bool ssh;
     QList<tiBackupJobSSHTarget> ssh_targets;
 
-    void startBackup();
+    // Return true when the backup ran; false on a hard abort (partition-uuid
+    // unset, disk not attached, or the target could not be mounted). Per-item
+    // rsync/PBS/SSH errors are logged but do NOT flip the result to false.
+    bool startBackup();
     void startBackupThread(backupManager *manager);
-    void startBackup(DeviceDiskPartition *part);
+    bool startBackup(DeviceDiskPartition *part);
 };
 
 QDataStream &operator<<(QDataStream &ds, const tiBackupJob &obj);

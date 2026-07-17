@@ -14,6 +14,10 @@
 pbsClient::pbsClient(QObject *parent) : QObject(parent)
 {
     nam = new QNetworkAccessManager(this);
+    // Bound each request so a stuck/unreachable PBS can't block the caller
+    // indefinitely (the REST calls wait on a nested QEventLoop with no timeout
+    // of their own). Available since Qt 5.15.
+    nam->setTransferTimeout(20000);
     connect(nam, &QNetworkAccessManager::sslErrors, this,
             [this](QNetworkReply *reply, const QList<QSslError> &errors) {
         // Verify the presented leaf certificate against the pinned fingerprint

@@ -34,7 +34,9 @@ public:
     void setJobName(const QString &name);
 
 signals:
-    void finished();
+    // ok == false means the backup could not run (hard abort: partition-uuid
+    // unset, disk not attached, mount failed, or the job no longer exists).
+    void finished(bool ok);
     void error(QString err);
 
 public slots:

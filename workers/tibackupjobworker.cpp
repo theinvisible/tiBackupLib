@@ -42,7 +42,7 @@ void tiBackupJobWorker::process()
     // Work is here
     if(jobname.isEmpty())
     {
-        emit finished();
+        emit finished(false);
         return;
     }
 
@@ -56,11 +56,11 @@ void tiBackupJobWorker::process()
         // starting; abort cleanly instead of dereferencing a null pointer.
         qWarning() << "tiBackupJobWorker::process() -> job" << jobname
                    << "no longer exists, aborting";
-        emit finished();
+        emit finished(false);
         return;
     }
 
-    job->startBackup();
+    const bool ok = job->startBackup();
 
-    emit finished();
+    emit finished(ok);
 }

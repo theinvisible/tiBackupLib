@@ -54,22 +54,22 @@ tiBackupJob::tiBackupJob()
 {
 }
 
-void tiBackupJob::startBackup()
+bool tiBackupJob::startBackup()
 {
     if(partition_uuid.isEmpty())
     {
         qWarning() << QString("tiBackupJob::startBackup() -> Partition-UUID for Backupjob %1 is not set").arg(name);
-        return;
+        return false;
     }
 
     DeviceDiskPartition part = TiBackupLib::getPartitionByUUID(partition_uuid);
     if(part.name.isEmpty())
     {
         qWarning() << QString("tiBackupJob::startBackup() -> Disk for BackupJob %1 is not attached, aborting").arg(name);
-        return;
+        return false;
     }
 
-    startBackup(&part);
+    return startBackup(&part);
 }
 
 void tiBackupJob::startBackupThread(backupManager *manager)
@@ -82,16 +82,21 @@ void tiBackupJob::startBackupThread(backupManager *manager)
     QObject::connect(worker, &tiBackupJobWorker::finished, thread, &QThread::quit);
     QObject::connect(worker, &tiBackupJobWorker::finished, worker, &QObject::deleteLater);
     QObject::connect(thread, &QThread::finished, thread, &QObject::deleteLater);
-    QObject::connect(thread, &QThread::finished, manager, [manager, name = name]() { manager->onBackupFinished(name); });
+    // Carry the backup outcome to the manager so it can record finished vs failed.
+    // manager lives on the main thread (context object) -> queued; bool is a
+    // built-in metatype, safe across the thread boundary.
+    QObject::connect(worker, &tiBackupJobWorker::finished, manager,
+                     [manager, name = name](bool ok) { manager->onBackupFinished(name, ok); });
     thread->start();
 }
 
-void tiBackupJob::startBackup(DeviceDiskPartition *part)
+bool tiBackupJob::startBackup(DeviceDiskPartition *part)
 {
     TiBackupLib lib;
     tiConfMain main_settings;
 
     QString deviceMountDir;
+    bool weMounted = false;  // true only if this job mounted the target itself
     QStringList backupArg;   // rsync option flags, one element each (no shell)
     QList<QString> bakMessages, pbsMessages;
     QList<tiBackupJobLog> bakLogs;
@@ -128,6 +133,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
     else
     {
         deviceMountDir = lib.mountPartition(part, this);
+        weMounted = true;   // this job owns the mount -> it must unmount at the end
         detailLog << "Device was not mounted, mounting on " << deviceMountDir << "\n";
         detailLog.flush();
 
@@ -136,7 +142,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
             detailLog << "Device could not be mounted, aborting" << "\n";
             detailLog.flush();
             tibackupDetailLog.close();
-            return;
+            return false;
         }
     }
 
@@ -427,8 +433,25 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                     for(const auto &pbs_groupid : pbs_backup_ids)
                     {
                         QList<QString> pbs_id = pbs_groupid.split("/");
+                        // Guard against malformed ids: split("/") on an id without a
+                        // slash yields < 2 elements, so pbs_id[1] would be an
+                        // out-of-bounds access that crashes the daemon.
+                        if(pbs_id.size() < 2 || pbs_id[0].isEmpty() || pbs_id[1].isEmpty())
+                        {
+                            detailLog << "Skipping malformed PBS backup id: " << pbs_groupid << "\n";
+                            detailLog.flush();
+                            continue;
+                        }
                         QString vmType = pbs_id[0];
                         QString vmID = pbs_id[1];
+                        // Only vm/ct are packaged below; skip anything else (e.g. host/)
+                        // instead of downloading files that would never be assembled.
+                        if(vmType != "vm" && vmType != "ct")
+                        {
+                            detailLog << "Skipping unsupported PBS backup type '" << vmType << "' for id " << pbs_groupid << "\n";
+                            detailLog.flush();
+                            continue;
+                        }
                         QDir vmdir(QString("%1/%2").arg(TiBackupLib::convertGeneric2Path(pbs_dest_folder, deviceMountDir), pbs_id[1]));
                         vmdir.mkpath(vmdir.path());
 
@@ -498,7 +521,7 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                     {
                                         detailLog << "File " << file << " already exists on target, deleting" << "\n";
                                         detailLog.flush();
-                                        lib.runCommandwithReturnCodePipe(QString("rm -f %1").arg(vmdir.path().append("/").append(file)), -1);
+                                        QFile::remove(QString("%1/%2").arg(vmdir.path(), file));
                                     }
 
                                     QProcess p;
@@ -552,37 +575,63 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 // Package VM depending on type
                                 if(vmType == "vm")
                                 {
-                                    QString images;
+                                    const QString base = vmdir.path();
+                                    // Each image is one "devname=path" argv token; no shell,
+                                    // so paths with spaces/metacharacters stay intact.
+                                    QStringList imageArgs;
                                     for(const auto &img : vmImages)
                                     {
-                                        QString devname = img.split(".")[0];
-                                        images += devname + "=" + vmdir.path() + "/" + img + " ";
+                                        const QString devname = img.split(".")[0];
+                                        imageArgs << QString("%1=%2/%3").arg(devname, base, img);
                                     }
 
-                                    // Cleanup old backups
-                                    lib.runCommandwithReturnCodePipe(QString("rm -f %1vzdump-qemu-*").arg(vmdir.path().append("/")), -1);
+                                    // Cleanup old backups (shell-free glob)
+                                    {
+                                        QDir d(base);
+                                        for(const QString &f : d.entryList(QStringList() << "vzdump-qemu-*", QDir::Files))
+                                            QFile::remove(d.filePath(f));
+                                    }
 
                                     detailLog << "Start compressing VM\n";
                                     QString outName = QString("vzdump-qemu-%1-%2.vma.zst").arg(vmID, dt.toString("yyyy_MM_dd-hh_mm_ss"));
-                                    QString vmacmd = QString("vma create /dev/stdout -c %1 %2").arg(vmdir.path().append("/").append(vmConf), images);
-                                    QString vmazstdcmd = QString("%1 | zstd -f -3 -T4 -o %2").arg(vmacmd, vmdir.path().append("/").append(outName));
-                                    detailLog << "Execute VMA-ZStd CMD: " << vmazstdcmd << "\n";
-                                    if(lib.runCommandwithReturnCodePipe(vmazstdcmd, -1) == 0)
+                                    const QString vmConfPath = QString("%1/%2").arg(base, vmConf);
+                                    const QString outPath = QString("%1/%2").arg(base, outName);
+
+                                    // Run "vma create /dev/stdout -c <conf> <dev=img>..." piped into
+                                    // "zstd -f -3 -T4 -o <out>" without bash, via QProcess chaining.
+                                    QStringList vmaArgs = QStringList() << "create" << "/dev/stdout" << "-c" << vmConfPath;
+                                    vmaArgs << imageArgs;
+                                    detailLog << "Execute VMA-ZStd: vma " << vmaArgs.join(" ") << " | zstd -f -3 -T4 -o " << outPath << "\n";
+                                    detailLog.flush();
+
+                                    QProcess vma;
+                                    QProcess zstd;
+                                    vma.setStandardOutputProcess(&zstd);
+                                    vma.start(QStringLiteral("vma"), vmaArgs);
+                                    zstd.start(QStringLiteral("zstd"), QStringList() << "-f" << "-3" << "-T4" << "-o" << outPath);
+                                    vma.waitForStarted(-1);
+                                    zstd.waitForStarted(-1);
+                                    vma.waitForFinished(-1);
+                                    zstd.waitForFinished(-1);
+                                    const bool pipeOk = vma.exitStatus() == QProcess::NormalExit && vma.exitCode() == 0
+                                                     && zstd.exitStatus() == QProcess::NormalExit && zstd.exitCode() == 0;
+
+                                    if(pipeOk)
                                     {
-                                        QFileInfo outInfo(vmdir.path().append("/").append(outName));
+                                        QFileInfo outInfo(outPath);
                                         if(outInfo.size() > 1000) {
                                             QString msg = QString("Successful backup, files: %1, archive: %2 (Size: %3GB)").arg(vmImages.join(" "), outName).arg(QString::number(outInfo.size()/1024/1024/1024, 'f', 2));
                                             log.msg.append(msg);
                                             detailLog << msg << "\n";
                                         } else {
-                                            QString msg = QString("Failed backup, compression or packaging failed, cmd: %1").arg(QString("%1 | zstd -f -3 -T4 -o %2").arg(vmacmd, vmdir.path().append("/").append(outName)));
+                                            QString msg = QString("Failed backup, compression or packaging produced an empty archive: %1").arg(outName);
                                             log.errmsg.append(msg);
                                             detailLog << msg << "\n";
                                         }
                                     }
                                     else
                                     {
-                                        QString msg = QString("Compression or packaging failed, cmd: %1").arg(QString("%1 | zstd -f -3 -T4 -o %2").arg(vmacmd, vmdir.path().append("/").append(outName)));
+                                        QString msg = QString("Compression or packaging failed for %1 (vma exit %2, zstd exit %3)").arg(outName).arg(vma.exitCode()).arg(zstd.exitCode());
                                         log.errmsg.append(msg);
                                         detailLog << msg << "\n";
                                     }
@@ -590,39 +639,47 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
                                 }
                                 else if(vmType == "ct")
                                 {
+                                    const QString base = vmdir.path();
                                     QString outName = QString("vzdump-lxc-%1-%2.tar.zst").arg(vmID, dt.toString("yyyy_MM_dd-hh_mm_ss"));
-                                    vmdir.mkpath(vmdir.path().append("/").append(vmImages[0]).append("/etc/vzdump/"));
-                                    QFile::copy(vmdir.path().append("/").append(vmConf), vmdir.path().append("/").append(vmImages[0]).append("/etc/vzdump/").append(vmConf));
+                                    const QString imgDir = QString("%1/%2").arg(base, vmImages[0]);
+                                    vmdir.mkpath(QString("%1/etc/vzdump/").arg(imgDir));
+                                    QFile::copy(QString("%1/%2").arg(base, vmConf), QString("%1/etc/vzdump/%2").arg(imgDir, vmConf));
 
-                                    // Cleanup old backups
-                                    lib.runCommandwithReturnCodePipe(QString("rm -f %1vzdump-lxc-*").arg(vmdir.path().append("/")), -1);
+                                    // Cleanup old backups (shell-free glob)
+                                    {
+                                        QDir d(base);
+                                        for(const QString &f : d.entryList(QStringList() << "vzdump-lxc-*", QDir::Files))
+                                            QFile::remove(d.filePath(f));
+                                    }
 
                                     detailLog << "Start compressing CT\n";
-                                    if(lib.runCommandwithReturnCode(QString("tar -C %1 -cf %2ct.tar .").arg(vmdir.path().append("/").append(vmImages[0]), vmdir.path().append("/")), -1) == 0)
+                                    const QString tarPath = QString("%1/ct.tar").arg(base);
+                                    const QString outPath = QString("%1/%2").arg(base, outName);
+                                    if(lib.runCommandwithReturnCode(QStringLiteral("tar"), QStringList() << "-C" << imgDir << "-cf" << tarPath << ".", -1) == 0)
                                     {
-                                        if(lib.runCommandwithReturnCode(QString("zstd -f -3 -T4 --rm %1ct.tar -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)), -1) == 0)
+                                        if(lib.runCommandwithReturnCode(QStringLiteral("zstd"), QStringList() << "-f" << "-3" << "-T4" << "--rm" << tarPath << "-o" << outPath, -1) == 0)
                                         {
-                                            QFileInfo outInfo(vmdir.path().append("/").append(outName));
+                                            QFileInfo outInfo(outPath);
                                             if(outInfo.size() > 1000) {
                                                 QString msg = QString("Successful backup, files: %1, archive: %2 (Size: %3GB)").arg(vmImages.join(" "), outName).arg(QString::number(outInfo.size()/1024/1024/1024, 'f', 2));
                                                 log.msg.append(msg);
                                                 detailLog << msg << "\n";
                                             } else {
-                                                QString msg = QString("Failed backup, compression failed, cmd: %1").arg(QString("zstd -f -10 --rm %1ct.tar -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)));
+                                                QString msg = QString("Failed backup, compression produced an empty archive: %1").arg(outName);
                                                 log.errmsg.append(msg);
                                                 detailLog << msg << "\n";
                                             }
                                         }
                                         else
                                         {
-                                            QString msg = QString("Compression failed, cmd: %1").arg(QString("zstd -f -10 --rm %1ct.tar -o %2").arg(vmdir.path().append("/"), vmdir.path().append("/").append(outName)));
+                                            QString msg = QString("Compression failed for %1 (zstd)").arg(outName);
                                             log.errmsg.append(msg);
                                             detailLog << msg << "\n";
                                         }
                                     }
                                     else
                                     {
-                                        QString msg = QString("Packaging failed, cmd: %1").arg(QString("tar -C %1 -cf %2ct.tar .").arg(vmdir.path().append("/").append(vmImages[0]), vmdir.path().append("/")));
+                                        QString msg = QString("Packaging failed for %1 (tar)").arg(outName);
                                         log.errmsg.append(msg);
                                         detailLog << msg << "\n";
                                     }
@@ -855,7 +912,12 @@ void tiBackupJob::startBackup(DeviceDiskPartition *part)
         detailLog.flush();
     }
 
-    lib.umountPartition(part);
+    // Only unmount if we mounted it ourselves; a disk that was already mounted
+    // before the backup (e.g. an always-mounted internal disk) must be left as-is.
+    if(weMounted)
+        lib.umountPartition(part);
+
+    return true;
 }
 
 QDataStream &operator<<(QDataStream &ds, const tiBackupJob &obj)

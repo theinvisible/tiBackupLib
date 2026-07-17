@@ -267,14 +267,24 @@ QString TiBackupLib::mountPartition(DeviceDiskPartition *part, tiBackupJob *job)
         // shell command. This removes the bash -c invocation entirely, so a
         // passphrase containing quotes or shell metacharacters can no longer
         // break out and execute arbitrary commands as root.
-        runCommandwithReturnCode(QStringLiteral("cryptsetup"),
+        int rc_luks = runCommandwithReturnCode(QStringLiteral("cryptsetup"),
                                  QStringList() << "luksOpen" << part->name
                                                << QString("tibackup_enc_%1").arg(part->uuid),
                                  pass.toUtf8() + '\n');
+        if(rc_luks != 0)
+            return "";   // could not unlock -> nothing to mount, report failure
         mnt_src = getMountPathSrc(part);
     }
 
-    runCommandwithReturnCode(QStringLiteral("mount"), QStringList() << mnt_src << mount_dir);
+    int rc = runCommandwithReturnCode(QStringLiteral("mount"), QStringList() << mnt_src << mount_dir);
+
+    // Don't claim success when the mount did not take: return the empty sentinel
+    // (callers treat "" as failure) and remove the empty mount dir we created.
+    if(rc != 0 || !isMounted(part))
+    {
+        m_dir.rmdir(mount_dir);
+        return "";
+    }
 
     return mount_dir;
 }

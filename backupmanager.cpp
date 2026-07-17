@@ -53,8 +53,9 @@ backupManager::backupStatus backupManager::getBackupStatus(const QString &name)
     return (backups->contains(name)) ? (*backups)[name] : backupStatus::standby;
 }
 
-void backupManager::onBackupFinished(const QString &name)
+void backupManager::onBackupFinished(const QString &name, bool ok)
 {
-    (*backups)[name] = backupStatus::finished;
-    emit statusChanged(name, backupStatus::finished);
+    const backupStatus status = ok ? backupStatus::finished : backupStatus::failed;
+    (*backups)[name] = status;
+    emit statusChanged(name, status);
 }
