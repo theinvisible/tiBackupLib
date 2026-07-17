@@ -1,3 +1,17 @@
+tibackuplib (0.9.1) unstable; urgency=low
+
+  * New sshClient::mkdir(): create a directory on a remote SSH target (host-key
+    pinned, path shell-quoted), used by the web UI file browser's "New folder"
+    action for SSH sources.
+  * New tiBackupMailer::send(): reusable Poco SMTP send (same transport as backup
+    notifications), used by the daemon's "send test mail" endpoint.
+  * tiBackupJob gains umount_after_backup (default true): the post-backup unmount is
+    now driven by this flag instead of a "we mounted it ourselves" guard, so a target
+    already mounted at job start is unmounted again after a successful run (fixes a
+    0.9.0 regression where an already-mounted target was left mounted).
+
+ -- Rene Hadler <rene@hadler.me>  Fri, 17 Jul 2026 14:30:00 +0200
+
 tibackuplib (0.9.0) unstable; urgency=low
 
   * Prio-3 hardening batch (lockstep with tibackup 0.9.0):

@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.16)
 # Single source of truth for the version of both tiBackupLib and the tiBackup
 # server: the server reads it at runtime through the generated config.h
 # (tibackup_config::version), so the version is maintained only on this line.
-project(tiBackupLib VERSION 0.9.0 LANGUAGES CXX)
+project(tiBackupLib VERSION 0.9.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -38,6 +38,8 @@ qt_add_library(tiBackupLib SHARED
     tibackupservice.h
     tibackupscheduler.cpp
     tibackupscheduler.h
+    tibackupmailer.cpp
+    tibackupmailer.h
     tibackuplib_global.h
     "${CMAKE_CURRENT_BINARY_DIR}/config.h"
     obj/devicedisk.cpp

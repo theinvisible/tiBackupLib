@@ -223,3 +223,53 @@ sshClient::ListResult sshClient::listDir(const SSHServer &srv, const QString &pa
     res.ok = true;
     return res;
 }
+
+sshClient::MkdirResult sshClient::mkdir(const SSHServer &srv, const QString &path)
+{
+    MkdirResult res;
+
+    if(srv.hostkey.isEmpty())
+    {
+        res.ok = false;
+        res.message = QStringLiteral("No pinned host key; run 'Test connection' first.");
+        return res;
+    }
+
+    if(path.isEmpty())
+    {
+        res.ok = false;
+        res.message = QStringLiteral("Empty remote path.");
+        return res;
+    }
+
+    QTemporaryFile kh(QDir::tempPath() + "/tibackup-kh-XXXXXX");
+    if(!kh.open())
+    {
+        res.ok = false;
+        res.message = QStringLiteral("Could not create temporary known_hosts file.");
+        return res;
+    }
+    kh.write(srv.hostkey.toUtf8());
+    kh.flush();
+
+    TiBackupLib lib;
+    QStringList args = sshArgv(srv, kh.fileName());
+    args << QString("%1@%2").arg(srv.username, srv.host);
+    // Single argv element => ssh forwards it verbatim to the remote shell. The
+    // path is shell-quoted so spaces/metacharacters can't be re-split or injected.
+    args << QString("mkdir -- %1").arg(shellQuote(path));
+
+    QString out;
+    const int rc = lib.runCommandwithReturnCode(QStringLiteral("ssh"), args, 20000, &out);
+    if(rc != 0)
+    {
+        res.ok = false;
+        res.message = out.trimmed().isEmpty()
+            ? QStringLiteral("Remote mkdir failed.")
+            : out.trimmed();
+        return res;
+    }
+
+    res.ok = true;
+    return res;
+}

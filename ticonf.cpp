@@ -224,6 +224,7 @@ void tiConfBackupJobs::saveBackupJob(const tiBackupJob &job)
     f->setValue("start_backup_on_hotplug", job.start_backup_on_hotplug);
     f->setValue("save_log", job.save_log);
     f->setValue("compare_via_checksum", job.compare_via_checksum);
+    f->setValue("umount_after_backup", job.umount_after_backup);
 
     f->beginWriteArray("folders");
     int i = 0;
@@ -325,6 +326,8 @@ void tiConfBackupJobs::readBackupJobs()
             job.start_backup_on_hotplug = f->value("start_backup_on_hotplug").toBool();
             job.save_log = f->value("save_log").toBool();
             job.compare_via_checksum = f->value("compare_via_checksum").toBool();
+            // Default true so jobs saved before this key existed keep unmounting.
+            job.umount_after_backup = f->value("umount_after_backup", true).toBool();
 
             int size = f->beginReadArray("folders");
             for (int i = 0; i < size; ++i)

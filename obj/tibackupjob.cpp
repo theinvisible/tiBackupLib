@@ -97,7 +97,6 @@ bool tiBackupJob::startBackup(DeviceDiskPartition *part)
     tiConfMain main_settings;
 
     QString deviceMountDir;
-    bool weMounted = false;  // true only if this job mounted the target itself
     QStringList backupArg;   // rsync option flags, one element each (no shell)
 
     // Unprivileged user that pre/post scripts run as (root-only main.conf setting;
@@ -140,7 +139,6 @@ bool tiBackupJob::startBackup(DeviceDiskPartition *part)
     else
     {
         deviceMountDir = lib.mountPartition(part, this);
-        weMounted = true;   // this job owns the mount -> it must unmount at the end
         detailLog << "Device was not mounted, mounting on " << deviceMountDir << "\n";
         detailLog.flush();
 
@@ -976,9 +974,13 @@ bool tiBackupJob::startBackup(DeviceDiskPartition *part)
         detailLog.flush();
     }
 
-    // Only unmount if we mounted it ourselves; a disk that was already mounted
-    // before the backup (e.g. an always-mounted internal disk) must be left as-is.
-    if(weMounted)
+    // Unmount the target after a successful backup unless the job opts out (e.g. a
+    // permanently-mounted internal disk). Default is on so a removable drive can be
+    // safely detached afterwards. This unmounts even when the drive was ALREADY
+    // mounted at job start (e.g. auto-mounted by the OS on insertion) - which is the
+    // common case on a server and the reason a plain "we mounted it" guard would
+    // wrongly leave the drive mounted.
+    if(umount_after_backup)
     {
         if(!lib.umountPartition(part))
         {
@@ -986,6 +988,12 @@ bool tiBackupJob::startBackup(DeviceDiskPartition *part)
                          "leaving it mounted." << "\n";
             detailLog.flush();
         }
+    }
+    else
+    {
+        detailLog << "Note: 'unmount after backup' is disabled for this job; leaving the "
+                     "target mounted on " << deviceMountDir << "." << "\n";
+        detailLog.flush();
     }
 
     return true;
@@ -1021,6 +1029,9 @@ QDataStream &operator<<(QDataStream &ds, const tiBackupJob &obj)
         for(auto it = t.backupdirs.cbegin(); it != t.backupdirs.cend(); ++it)
             ds << it.key() << it.value();
     }
+
+    // Appended after the original format; readers guard with atEnd() for old data.
+    ds << obj.umount_after_backup;
 
     return ds;
 }
@@ -1075,6 +1086,10 @@ QDataStream &operator>>(QDataStream &ds, tiBackupJob &obj)
         }
         obj.ssh_targets.append(t);
     }
+
+    // Optional trailing field (see operator<<): default stays true for old streams.
+    if(!ds.atEnd())
+        ds >> obj.umount_after_backup;
 
     return ds;
 }

@@ -35,6 +35,11 @@ public:
         QString message;       // error text when !ok
     };
 
+    struct MkdirResult {
+        bool ok = false;
+        QString message;       // error text when !ok
+    };
+
     // ssh argv (options only, no program/host) for direct argv-form ssh calls.
     static QStringList sshArgv(const SSHServer &srv, const QString &knownHostsPath);
     // Transport command string for rsync's -e / RSYNC_RSH (e.g. "ssh -p 22 -o ...").
@@ -49,6 +54,11 @@ public:
 
     // List directories/files at a remote path (uses the server's pinned host key).
     static ListResult listDir(const SSHServer &srv, const QString &path);
+
+    // Create a directory at an absolute remote path (uses the server's pinned host
+    // key). `path` must already be the full remote path; it is shell-quoted before
+    // being handed to the remote `mkdir`.
+    static MkdirResult mkdir(const SSHServer &srv, const QString &path);
 
     // POSIX single-quote a string for safe use inside a remote shell command.
     static QString shellQuote(const QString &s);

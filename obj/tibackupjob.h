@@ -89,6 +89,10 @@ public:
     bool start_backup_on_hotplug;
     bool save_log;
     bool compare_via_checksum;
+    // Unmount the backup target after a successful run (default on). Off leaves a
+    // permanently-mounted internal target disk mounted. Unmounts even when the
+    // drive was already mounted at job start (e.g. auto-mounted by the OS).
+    bool umount_after_backup = true;
 
     bool notify;
     QString notifyRecipients;
