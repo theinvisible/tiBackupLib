@@ -91,6 +91,8 @@ target_link_libraries(tiBackupLib
         Qt6::Network
         PocoFoundation
         PocoNet
+        PocoNetSSL
+        PocoCrypto
         udev
         blkid
 )

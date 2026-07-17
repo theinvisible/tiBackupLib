@@ -87,6 +87,10 @@ void tiConfMain::initMainConf()
         conf.setValue("scripts/run_user", tibackup_config::script_run_user);
         // Notification-mail sender; user-overridable (root or web Settings).
         conf.setValue("smtp/from", tibackup_config::mail_from_default);
+        // SMTP transport: port + security mode (none|starttls|ssl). Defaults keep
+        // the historical behaviour (plain SMTP on port 25).
+        conf.setValue("smtp/port", 25);
+        conf.setValue("smtp/security", "none");
         // Fresh installs listen on all interfaces (Proxmox-style): the package
         // ships a self-signed cert under <config-dir>/pki, so the web UI comes up
         // over HTTPS and is reachable on the LAN out of the box. Set only here (on
@@ -127,6 +131,17 @@ void tiConfMain::initMainConf()
             // Seed the mail sender on upgrade to the historical hardcoded value so
             // notification mails keep the same From after upgrade.
             conf.setValue("smtp/from", tibackup_config::mail_from_default);
+            conf.sync();
+        }
+        if(!conf.contains("smtp/port"))
+        {
+            // Historical behaviour was plain SMTP on port 25.
+            conf.setValue("smtp/port", 25);
+            conf.sync();
+        }
+        if(!conf.contains("smtp/security"))
+        {
+            conf.setValue("smtp/security", "none");
             conf.sync();
         }
         // Migrate logs off /etc: older installs stored paths/logs as the in-tree

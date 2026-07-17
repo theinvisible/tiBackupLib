@@ -37,11 +37,7 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 #include <QRegularExpressionMatch>
 #include <QThread>
 
-#include "Poco/Net/NetException.h"
-#include "Poco/Net/MailMessage.h"
-#include "Poco/Net/SMTPClientSession.h"
-#include "Poco/Net/FilePartSource.h"
-#include "Poco/Net/StringPartSource.h"
+#include "tibackupmailer.h"
 
 #include "exitcodes.h"
 #include "../tibackuplib.h"
@@ -861,18 +857,13 @@ bool tiBackupJob::startBackup(DeviceDiskPartition *part)
         detailLog << "We send notification now to " << notifyRecipients << "\n";
         detailLog.flush();
 
-        Poco::Net::MailRecipient recipient(Poco::Net::MailRecipient::PRIMARY_RECIPIENT, notifyRecipients.toStdString());
-
         // Sender is configurable (smtp/from); fall back to the historical default
         // if the key is unset (e.g. a config that predates seeding).
         QString mailFrom = main_settings.getValue("smtp/from").toString();
         if(mailFrom.isEmpty())
             mailFrom = tibackup_config::mail_from_default;
 
-        Poco::Net::MailMessage mail;
-        mail.addRecipient(recipient);
-        mail.setSender(mailFrom.toStdString());
-        mail.setSubject(QString("Information for backupjob <%1>").arg(name).toStdString());
+        const QString mailSubject = QString("Information for backupjob <%1>").arg(name);
 
         QString mailMsg = QString("Backupjob <%1> was executed, you can now detach drive %2. \n\nGenerated backup information: \n\n").arg(name, device);
         if(bakMessages.count() == 0)
@@ -928,46 +919,36 @@ bool tiBackupJob::startBackup(DeviceDiskPartition *part)
             mailMsg.append(QString("  %1 -> %2 :: %3\n").arg(log.source, log.destination, exitCodesRsync::getMsg(log.ret_code)));
         }
 
-        mail.addContent(new Poco::Net::StringPartSource(mailMsg.toStdString()));
-
+        // Attach the per-leg rsync logs (when the job keeps them). Attachment names
+        // are the real log file names; the mailer base64-encodes them.
+        QStringList mailAttachments;
         if(save_log == true && bakLogs.size() > 0)
         {
             for(int ia=0; ia<bakLogs.size(); ia++)
             {
                 logpath = bakLogs.at(ia).rsync_path;
                 if(QFile::exists(logpath))
-                    mail.addAttachment(QString("rsync_%1.log").arg(ia).toStdString(), new Poco::Net::FilePartSource(logpath.toStdString()));
+                    mailAttachments << logpath;
             }
         }
 
-        try
-        {
-            Poco::Net::SMTPClientSession smtp(main_settings.getValue("smtp/server").toString().toStdString());
+        // One transport for both notifications and the web "test mail": honours the
+        // configured port + security (none/STARTTLS/SSL). Password is stored base64.
+        tiBackupMailer::Params mp;
+        mp.server   = main_settings.getValue("smtp/server").toString();
+        mp.port     = main_settings.getValue("smtp/port").toInt();   // 0 -> mailer uses 25
+        mp.security = tiBackupMailer::securityFromString(main_settings.getValue("smtp/security").toString());
+        mp.auth     = main_settings.getValue("smtp/auth").toBool();
+        mp.username = main_settings.getValue("smtp/username").toString();
+        mp.password = QString::fromUtf8(QByteArray::fromBase64(main_settings.getValue("smtp/password").toString().toLatin1()));
+        mp.from     = mailFrom;
 
-            if(main_settings.getValue("smtp/auth").toBool() == true)
-            {
-                smtp.login(Poco::Net::SMTPClientSession::AUTH_LOGIN,
-                           main_settings.getValue("smtp/username").toString().toStdString(),
-                           QString(QByteArray::fromBase64(main_settings.getValue("smtp/password").toString().toLatin1())).toStdString());
-            }
-            else
-            {
-                smtp.login();
-            }
-
-            smtp.sendMessage(mail);
-            smtp.close();
-
+        const tiBackupMailer::Result mres =
+            tiBackupMailer::send(mp, notifyRecipients, mailSubject, mailMsg, mailAttachments);
+        if(mres.ok)
             detailLog << "tiBackupJob::startBackup() -> Mail message was send successfully to " << notifyRecipients << "\n";
-        }
-        catch(Poco::Net::SMTPException &e)
-        {
-            detailLog << "tiBackupJob::startBackup() -> Mail message was NOT send. Error occured: " << QString::fromStdString(e.message()) << "\n";
-        }
-        catch(Poco::Net::HostNotFoundException &e)
-        {
-            detailLog << "tiBackupJob::startBackup() -> Mail message was NOT send. Hostname not found: " << QString::fromStdString(e.message()) << "\n";
-        }
+        else
+            detailLog << "tiBackupJob::startBackup() -> Mail message was NOT send. Error occured: " << mres.message << "\n";
 
         QDateTime currentFinishDate = QDateTime::currentDateTime();
         detailLog << QString("Backup job finished at %1!").arg(currentFinishDate.toString("yyyy-MM-dd_HH-mm")) << "\n";
