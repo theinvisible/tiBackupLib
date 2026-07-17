@@ -48,6 +48,7 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 #include "../ticonf.h"
 #include "../pbsclient.h"
 #include "../sshclient.h"
+#include "config.h"
 #include "workers/tibackupjobworker.h"
 
 tiBackupJob::tiBackupJob()
@@ -98,6 +99,12 @@ bool tiBackupJob::startBackup(DeviceDiskPartition *part)
     QString deviceMountDir;
     bool weMounted = false;  // true only if this job mounted the target itself
     QStringList backupArg;   // rsync option flags, one element each (no shell)
+
+    // Unprivileged user that pre/post scripts run as (root-only main.conf setting;
+    // never web-settable). Falls back to the compiled-in default when unset.
+    QString scriptUser = main_settings.getValue("scripts/run_user").toString();
+    if(scriptUser.isEmpty())
+        scriptUser = QString(tibackup_config::script_run_user);
     QList<QString> bakMessages, pbsMessages;
     QList<tiBackupJobLog> bakLogs;
     QList<tiBackupJobPBSLog> bakPBSLogs;
@@ -146,60 +153,87 @@ bool tiBackupJob::startBackup(DeviceDiskPartition *part)
         }
     }
 
-    // Execute external script before backup if set
-    if(!scriptBeforeBackup.isEmpty() && QFile::exists(scriptBeforeBackup))
+    // Execute external script before backup if set. The script must live INSIDE the
+    // configured scripts directory (a job may not run an arbitrary file), and it runs
+    // UNPRIVILEGED as scriptUser - root only via explicit sudo inside the script.
+    if(!scriptBeforeBackup.isEmpty())
     {
-        detailLog << QString("Script <%1> will be taken as template").arg(scriptBeforeBackup) << "\n";
-        detailLog.flush();
-
-        QFile script(scriptBeforeBackup);
-        script.open(QIODevice::ReadOnly | QIODevice::Text);
-        QString scriptSource = QString(script.readAll());
-        script.close();
-
-        QString tmpSource = TiBackupLib::convertGeneric2Path(scriptSource, deviceMountDir);
-
-        // Materialise the computed script in a private temp file. QTemporaryFile
-        // creates it atomically (O_EXCL) with a random name and 0600 permissions,
-        // which defeats the predictable-name symlink race the old fixed
-        // "/tmp/<jobname>_<timestamp>" path was vulnerable to (it runs as root).
-        QTemporaryFile tmpScript(QDir::tempPath() + "/tibackup-XXXXXX.sh");
-        tmpScript.setAutoRemove(false);
-        if(!tmpScript.open())
+        const QString scriptPath = TiBackupLib::confineToScriptsDir(scriptBeforeBackup);
+        if(scriptPath.isEmpty())
         {
-            QString msg("Script before Backup could not be staged.");
+            QString msg = QString("Script before Backup <%1> is outside the scripts directory or missing, skipping").arg(scriptBeforeBackup);
             bakMessages.append(msg);
             detailLog << msg << "\n";
             detailLog.flush();
         }
         else
         {
-            const QString tmpfilename = tmpScript.fileName();
-            tmpScript.write(tmpSource.toUtf8());
-            tmpScript.flush();
-            tmpScript.close();
-            tmpScript.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
-
-            detailLog << QString("Computed Script <%1> will be executed before backup:").arg(tmpfilename) << "\n";
-            detailLog << "------------------------------" << "\n";
-            detailLog << tmpSource << "\n";
-            detailLog << "------------------------------" << "\n";
+            detailLog << QString("Script <%1> will be taken as template").arg(scriptPath) << "\n";
             detailLog.flush();
 
-            if(lib.runCommandwithReturnCode(tmpfilename, -1) != 0)
+            QFile script(scriptPath);
+            script.open(QIODevice::ReadOnly | QIODevice::Text);
+            QString scriptSource = QString(script.readAll());
+            script.close();
+
+            QString tmpSource = TiBackupLib::convertGeneric2Path(scriptSource, deviceMountDir);
+
+            // Materialise the computed script in a private temp file (QTemporaryFile:
+            // atomic O_EXCL, random name, 0600 - defeats the predictable-name symlink
+            // race the old fixed /tmp path had). Stage it in a nested scope so the
+            // QTemporaryFile is DESTROYED (its write fd fully closed) before we exec it:
+            // execve() returns ETXTBSY while any write fd to the target is still open,
+            // and QTemporaryFile keeps its handle for the object's lifetime (close() is
+            // not enough). setAutoRemove(false) keeps the file on disk after the scope.
+            QString tmpfilename;
             {
-                QString msg("Script before Backup was not executed properly.");
+                QTemporaryFile tmpScript(QDir::tempPath() + "/tibackup-XXXXXX.sh");
+                tmpScript.setAutoRemove(false);
+                if(tmpScript.open())
+                {
+                    tmpfilename = tmpScript.fileName();
+                    tmpScript.write(tmpSource.toUtf8());
+                    tmpScript.flush();
+                    tmpScript.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+                }
+            }
+            if(tmpfilename.isEmpty())
+            {
+                QString msg("Script before Backup could not be staged.");
                 bakMessages.append(msg);
                 detailLog << msg << "\n";
+                detailLog.flush();
             }
             else
             {
-                QString msg("Script before Backup was executed properly.");
-                bakMessages.append(msg);
-                detailLog << msg << "\n";
+                detailLog << QString("Computed Script <%1> will be executed before backup as user '%2':").arg(tmpfilename, scriptUser) << "\n";
+                detailLog << "------------------------------" << "\n";
+                detailLog << tmpSource << "\n";
+                detailLog << "------------------------------" << "\n";
+                detailLog.flush();
+
+                const int rc = lib.runScriptAsUser(tmpfilename, scriptUser, -1);
+                if(rc == -1)
+                {
+                    QString msg = QString("Script before Backup NOT run: run-user '%1' not found (refusing to run as root).").arg(scriptUser);
+                    bakMessages.append(msg);
+                    detailLog << msg << "\n";
+                }
+                else if(rc != 0)
+                {
+                    QString msg("Script before Backup was not executed properly.");
+                    bakMessages.append(msg);
+                    detailLog << msg << "\n";
+                }
+                else
+                {
+                    QString msg("Script before Backup was executed properly.");
+                    bakMessages.append(msg);
+                    detailLog << msg << "\n";
+                }
+                detailLog.flush();
+                QFile::remove(tmpfilename);
             }
-            detailLog.flush();
-            QFile::remove(tmpfilename);
         }
     }
 
@@ -744,58 +778,82 @@ bool tiBackupJob::startBackup(DeviceDiskPartition *part)
         detailLog.flush();
     }
 
-    // Execute external script after backup if set
-    if(!scriptAfterBackup.isEmpty() && QFile::exists(scriptAfterBackup))
+    // Execute external script after backup if set. Same rules as the before-backup
+    // block: confined to the scripts directory, run unprivileged as scriptUser.
+    if(!scriptAfterBackup.isEmpty())
     {
-        detailLog << QString("Run script after backup: Script <%1> will be taken as template").arg(scriptAfterBackup) << "\n";
-        detailLog.flush();
-
-        QFile script(scriptAfterBackup);
-        script.open(QIODevice::ReadOnly | QIODevice::Text);
-        QString scriptSource = QString(script.readAll());
-        script.close();
-
-        QString tmpSource = TiBackupLib::convertGeneric2Path(scriptSource, deviceMountDir);
-
-        // Private temp file, random name + 0600 (O_EXCL) — see the before-backup
-        // block above for why the old fixed /tmp path was unsafe under root.
-        QTemporaryFile tmpScript(QDir::tempPath() + "/tibackup-XXXXXX.sh");
-        tmpScript.setAutoRemove(false);
-        if(!tmpScript.open())
+        const QString scriptPath = TiBackupLib::confineToScriptsDir(scriptAfterBackup);
+        if(scriptPath.isEmpty())
         {
-            QString msg("Script after Backup could not be staged.");
+            QString msg = QString("Script after Backup <%1> is outside the scripts directory or missing, skipping").arg(scriptAfterBackup);
             bakMessages.append(msg);
             detailLog << msg << "\n";
             detailLog.flush();
         }
         else
         {
-            const QString tmpfilename = tmpScript.fileName();
-            tmpScript.write(tmpSource.toUtf8());
-            tmpScript.flush();
-            tmpScript.close();
-            tmpScript.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
-
-            detailLog << QString("Computed Script <%1> will be executed after backup:").arg(tmpfilename) << "\n";
-            detailLog << "------------------------------" << "\n";
-            detailLog << tmpSource << "\n";
-            detailLog << "------------------------------" << "\n";
+            detailLog << QString("Run script after backup: Script <%1> will be taken as template").arg(scriptPath) << "\n";
             detailLog.flush();
 
-            if(lib.runCommandwithReturnCode(tmpfilename, -1) != 0)
+            QFile script(scriptPath);
+            script.open(QIODevice::ReadOnly | QIODevice::Text);
+            QString scriptSource = QString(script.readAll());
+            script.close();
+
+            QString tmpSource = TiBackupLib::convertGeneric2Path(scriptSource, deviceMountDir);
+
+            // Private temp file (O_EXCL) staged in a nested scope so its write fd is
+            // closed (QTemporaryFile destroyed) before exec — otherwise execve() gives
+            // ETXTBSY. See the before-backup block for the full rationale.
+            QString tmpfilename;
             {
-                QString msg = QString("Script after Backup was not executed properly.");
+                QTemporaryFile tmpScript(QDir::tempPath() + "/tibackup-XXXXXX.sh");
+                tmpScript.setAutoRemove(false);
+                if(tmpScript.open())
+                {
+                    tmpfilename = tmpScript.fileName();
+                    tmpScript.write(tmpSource.toUtf8());
+                    tmpScript.flush();
+                    tmpScript.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+                }
+            }
+            if(tmpfilename.isEmpty())
+            {
+                QString msg("Script after Backup could not be staged.");
                 bakMessages.append(msg);
                 detailLog << msg << "\n";
+                detailLog.flush();
             }
             else
             {
-                QString msg = QString("Script after Backup was executed properly.");
-                bakMessages.append(msg);
-                detailLog << msg << "\n";
+                detailLog << QString("Computed Script <%1> will be executed after backup as user '%2':").arg(tmpfilename, scriptUser) << "\n";
+                detailLog << "------------------------------" << "\n";
+                detailLog << tmpSource << "\n";
+                detailLog << "------------------------------" << "\n";
+                detailLog.flush();
+
+                const int rc = lib.runScriptAsUser(tmpfilename, scriptUser, -1);
+                if(rc == -1)
+                {
+                    QString msg = QString("Script after Backup NOT run: run-user '%1' not found (refusing to run as root).").arg(scriptUser);
+                    bakMessages.append(msg);
+                    detailLog << msg << "\n";
+                }
+                else if(rc != 0)
+                {
+                    QString msg = QString("Script after Backup was not executed properly.");
+                    bakMessages.append(msg);
+                    detailLog << msg << "\n";
+                }
+                else
+                {
+                    QString msg = QString("Script after Backup was executed properly.");
+                    bakMessages.append(msg);
+                    detailLog << msg << "\n";
+                }
+                detailLog.flush();
+                QFile::remove(tmpfilename);
             }
-            detailLog.flush();
-            QFile::remove(tmpfilename);
         }
     }
 

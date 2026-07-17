@@ -43,6 +43,13 @@ namespace tibackup_config
     [[maybe_unused]] static constexpr QDataStream::Version ipc_version = QDataStream::Qt_5_7;
     [[maybe_unused]] static constexpr QLatin1String backup_detail_folder{"backup_detail"};
 
+    // Default system user that pre/post-backup scripts are executed as. The daemon
+    // runs as root but drops to this unprivileged user before running a job script,
+    // so a web-authored script is not root-equivalent (root only via explicit sudo).
+    // Overridable via the main.conf key scripts/run_user (root-only; never exposed
+    // through the web API). Created by the package postinst.
+    [[maybe_unused]] static constexpr QLatin1String script_run_user{"tibackup"};
+
     [[maybe_unused]] static constexpr QLatin1String var_partbackup_dir{"%MNTBACKUPDIR%"};
 
     // Resolve the main config file path. Honours the TIBACKUP_CONF env override

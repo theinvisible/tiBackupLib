@@ -78,6 +78,9 @@ void tiConfMain::initMainConf()
         conf.setValue("paths/logs", logs_dir);
         conf.setValue("paths/scripts", scripts_dir);
         conf.setValue("paths/initd", tibackup_config::initd_default);
+        // Non-root user that pre/post-backup scripts run as (root-only setting; never
+        // web-settable). See tibackup_config::script_run_user.
+        conf.setValue("scripts/run_user", tibackup_config::script_run_user);
         // Fresh installs listen on all interfaces (Proxmox-style): the package
         // ships a self-signed cert under <config-dir>/pki, so the web UI comes up
         // over HTTPS and is reachable on the LAN out of the box. Set only here (on
@@ -104,6 +107,13 @@ void tiConfMain::initMainConf()
             sshservers_dir_path.mkpath(sshservers_dir);
 
             conf.setValue("paths/sshservers", sshservers_dir);
+            conf.sync();
+        }
+        if(!conf.contains("scripts/run_user"))
+        {
+            // Seed the script run-user on upgrade so existing installs also drop
+            // privileges for pre/post scripts instead of running them as root.
+            conf.setValue("scripts/run_user", tibackup_config::script_run_user);
             conf.sync();
         }
     }

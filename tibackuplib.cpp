@@ -25,7 +25,12 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 
 #include <QDebug>
 #include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <QProcess>
+#include <QProcessEnvironment>
+
+#include <vector>
 
 #include <unistd.h>
 #include <string.h>
@@ -34,11 +39,14 @@ Copyright (C) 2014 Rene Hadler, rene@hadler.me, https://hadler.me
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <pwd.h>
+#include <grp.h>
 
 #include <sys/mount.h>
 #include <mntent.h>
 
 #include "config.h"
+#include "ticonf.h"
 
 TiBackupLib::TiBackupLib()
 {
@@ -441,6 +449,113 @@ int TiBackupLib::runCommandwithReturnCodePipe(const QString &cmd, int timeout)
     proc.waitForFinished(timeout);
 
     return proc.exitCode();
+}
+
+int TiBackupLib::runScriptAsUser(const QString &scriptPath, const QString &username,
+                                 int timeout, QString *output)
+{
+    // Resolve the target user in the PARENT: getpwnam_r/getgrouplist are not
+    // async-signal-safe, so they must not run inside the child-process modifier.
+    const QByteArray uname = username.toLocal8Bit();
+    struct passwd pwd;
+    struct passwd *res = nullptr;
+    std::vector<char> pbuf(16384);
+    if(getpwnam_r(uname.constData(), &pwd, pbuf.data(), pbuf.size(), &res) != 0 || res == nullptr)
+    {
+        qWarning() << "TiBackupLib::runScriptAsUser() -> user not found, refusing to run as root:" << username;
+        return -1;   // fail closed: never fall back to root
+    }
+    const uid_t uid = pwd.pw_uid;
+    const gid_t gid = pwd.pw_gid;
+    const QString home = QString::fromLocal8Bit(pwd.pw_dir);
+
+    // Supplementary groups (resolved in the parent, applied in the child).
+    std::vector<gid_t> groups(32);
+    int ngroups = static_cast<int>(groups.size());
+    if(getgrouplist(uname.constData(), gid, groups.data(), &ngroups) < 0)
+    {
+        groups.resize(ngroups > 0 ? ngroups : 1);
+        ngroups = static_cast<int>(groups.size());
+        getgrouplist(uname.constData(), gid, groups.data(), &ngroups);
+    }
+    groups.resize(ngroups);
+
+    // The dropped process must be able to read+exec the staged script, so hand it
+    // ownership (the daemon is root here) and keep it owner-only (0700).
+    if(::chown(scriptPath.toLocal8Bit().constData(), uid, gid) != 0)
+        qWarning() << "TiBackupLib::runScriptAsUser() -> chown failed:" << strerror(errno);
+    QFile::setPermissions(scriptPath, QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+
+    QProcess proc;
+    if(output != nullptr)
+        proc.setProcessChannelMode(QProcess::MergedChannels);
+
+    // Minimal, predictable environment for the unprivileged script.
+    QProcessEnvironment env;
+    env.insert(QStringLiteral("HOME"), home.isEmpty() ? QStringLiteral("/tmp") : home);
+    env.insert(QStringLiteral("USER"), username);
+    env.insert(QStringLiteral("LOGNAME"), username);
+    env.insert(QStringLiteral("PATH"),
+               QStringLiteral("/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"));
+    proc.setProcessEnvironment(env);
+
+    // Drop privileges in the child after fork(), before exec(). Only async-signal-safe
+    // syscalls here; the group vector was built in the parent above. On any failure
+    // _exit() so we never exec the script with elevated privileges.
+    proc.setChildProcessModifier([uid, gid, groups]() {
+        if(setgroups(groups.size(), groups.data()) != 0) _exit(127);
+        if(setgid(gid) != 0) _exit(127);
+        if(setuid(uid) != 0) _exit(127);
+    });
+
+    proc.start(scriptPath, QStringList(), QIODevice::ReadOnly);
+    proc.waitForStarted(timeout);
+    proc.waitForFinished(timeout);
+
+    if(output != nullptr)
+        *output = QString::fromUtf8(proc.readAll());
+
+    if(proc.error() != QProcess::UnknownError || proc.exitCode() != 0)
+        qWarning() << "TiBackupLib::runScriptAsUser() ->" << scriptPath << "as" << username
+                   << "uid" << uid << "gid" << gid
+                   << "exitCode" << proc.exitCode() << "exitStatus" << proc.exitStatus()
+                   << "procError" << proc.error() << proc.errorString();
+
+    return proc.exitCode();
+}
+
+QString TiBackupLib::confineToScriptsDir(const QString &pathOrName)
+{
+    if(pathOrName.isEmpty())
+        return QString();
+
+    tiConfMain cfg;
+    const QString scriptsDir = cfg.getValue("paths/scripts").toString();
+    if(scriptsDir.isEmpty())
+        return QString();
+
+    // Bare names ("prebackup.sh") and relative paths resolve against the scripts dir.
+    const QString lexBase = QDir::cleanPath(QDir(scriptsDir).absolutePath());
+    QFileInfo fi(pathOrName);
+    const QString absInput = fi.isAbsolute() ? QDir::cleanPath(pathOrName)
+                                             : QDir::cleanPath(QDir(lexBase).filePath(pathOrName));
+
+    // If the target exists, compare CANONICAL paths so a symlink inside the dir can't
+    // point outside it (used at execution time). If it doesn't exist yet - e.g. saving
+    // a job before its script is written - fall back to a lexical containment check.
+    const QString canonTarget = QFileInfo(absInput).canonicalFilePath();
+    if(!canonTarget.isEmpty())
+    {
+        const QString canonBase = QFileInfo(lexBase).canonicalFilePath();
+        const QString base = canonBase.isEmpty() ? lexBase : canonBase;
+        if(canonTarget == base || canonTarget.startsWith(base + QLatin1Char('/')))
+            return canonTarget;
+        return QString();
+    }
+
+    if(absInput == lexBase || absInput.startsWith(lexBase + QLatin1Char('/')))
+        return absInput;
+    return QString();
 }
 
 QString TiBackupLib::convertPath2Generic(const QString &path, const QString &mountdir)

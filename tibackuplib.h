@@ -76,6 +76,18 @@ public:
                                  const QByteArray &stdinData, int timeout = 50000);
     int runCommandwithReturnCodePipe(const QString &cmd, int timeout = 50000);
 
+    // Execute `scriptPath` as the unprivileged system user `username`, dropping the
+    // group set + gid + uid in the child before exec (so a job's pre/post script is
+    // NOT run as root). Returns the script's exit code, or -1 if `username` cannot be
+    // resolved (fail closed: the script is not run rather than falling back to root).
+    int runScriptAsUser(const QString &scriptPath, const QString &username,
+                        int timeout = 50000, QString *output = nullptr);
+
+    // Resolve a job's script path/name to a canonical path INSIDE the configured
+    // paths/scripts directory (symlinks resolved). Returns empty if it escapes the
+    // scripts dir - used to keep the web layer from running arbitrary root files.
+    static QString confineToScriptsDir(const QString &pathOrName);
+
     static QString convertPath2Generic(const QString &path, const QString &mountdir);
     static QString convertGeneric2Path(const QString &path, const QString &mountdir);
 
